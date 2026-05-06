@@ -2,7 +2,7 @@
 
 ## はじめに
 このツールは Music Video などのmp4動画に、スクロール歌詞を付けるものです。
-歌詞は uta-net (https://www.uta-net.com/)から取得します。
+歌詞は uta-net (https://www.uta-net.com/) から取得します。
 - MochiutaSC_1 画面
 ![mochikaraSC_1](image/MochiutaSC_1.png)
 
