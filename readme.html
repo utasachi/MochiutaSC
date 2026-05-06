@@ -1,0 +1,208 @@
+<!DOCTYPE html><html><head>
+      <title>readme</title>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css">
+      
+      
+      
+      
+      
+      
+      
+      <style>
+      code[class*=language-],pre[class*=language-]{color:#333;background:0 0;font-family:Consolas,"Liberation Mono",Menlo,Courier,monospace;text-align:left;white-space:pre;word-spacing:normal;word-break:normal;word-wrap:normal;line-height:1.4;-moz-tab-size:8;-o-tab-size:8;tab-size:8;-webkit-hyphens:none;-moz-hyphens:none;-ms-hyphens:none;hyphens:none}pre[class*=language-]{padding:.8em;overflow:auto;border-radius:3px;background:#f5f5f5}:not(pre)>code[class*=language-]{padding:.1em;border-radius:.3em;white-space:normal;background:#f5f5f5}.token.blockquote,.token.comment{color:#969896}.token.cdata{color:#183691}.token.doctype,.token.macro.property,.token.punctuation,.token.variable{color:#333}.token.builtin,.token.important,.token.keyword,.token.operator,.token.rule{color:#a71d5d}.token.attr-value,.token.regex,.token.string,.token.url{color:#183691}.token.atrule,.token.boolean,.token.code,.token.command,.token.constant,.token.entity,.token.number,.token.property,.token.symbol{color:#0086b3}.token.prolog,.token.selector,.token.tag{color:#63a35c}.token.attr-name,.token.class,.token.class-name,.token.function,.token.id,.token.namespace,.token.pseudo-class,.token.pseudo-element,.token.url-reference .token.variable{color:#795da3}.token.entity{cursor:help}.token.title,.token.title .token.punctuation{font-weight:700;color:#1d3e81}.token.list{color:#ed6a43}.token.inserted{background-color:#eaffea;color:#55a532}.token.deleted{background-color:#ffecec;color:#bd2c00}.token.bold{font-weight:700}.token.italic{font-style:italic}.language-json .token.property{color:#183691}.language-markup .token.tag .token.punctuation{color:#333}.language-css .token.function,code.language-css{color:#0086b3}.language-yaml .token.atrule{color:#63a35c}code.language-yaml{color:#183691}.language-ruby .token.function{color:#333}.language-markdown .token.url{color:#795da3}.language-makefile .token.symbol{color:#795da3}.language-makefile .token.variable{color:#183691}.language-makefile .token.builtin{color:#0086b3}.language-bash .token.keyword{color:#0086b3}pre[data-line]{position:relative;padding:1em 0 1em 3em}pre[data-line] .line-highlight-wrapper{position:absolute;top:0;left:0;background-color:transparent;display:block;width:100%}pre[data-line] .line-highlight{position:absolute;left:0;right:0;padding:inherit 0;margin-top:1em;background:hsla(24,20%,50%,.08);background:linear-gradient(to right,hsla(24,20%,50%,.1) 70%,hsla(24,20%,50%,0));pointer-events:none;line-height:inherit;white-space:pre}pre[data-line] .line-highlight:before,pre[data-line] .line-highlight[data-end]:after{content:attr(data-start);position:absolute;top:.4em;left:.6em;min-width:1em;padding:0 .5em;background-color:hsla(24,20%,50%,.4);color:#f4f1ef;font:bold 65%/1.5 sans-serif;text-align:center;vertical-align:.3em;border-radius:999px;text-shadow:none;box-shadow:0 1px #fff}pre[data-line] .line-highlight[data-end]:after{content:attr(data-end);top:auto;bottom:.4em}html body{font-family:'Helvetica Neue',Helvetica,'Segoe UI',Arial,freesans,sans-serif;font-size:16px;line-height:1.6;color:#333;background-color:#fff;overflow:initial;box-sizing:border-box;word-wrap:break-word}html body>:first-child{margin-top:0}html body h1,html body h2,html body h3,html body h4,html body h5,html body h6{line-height:1.2;margin-top:1em;margin-bottom:16px;color:#000}html body h1{font-size:2.25em;font-weight:300;padding-bottom:.3em}html body h2{font-size:1.75em;font-weight:400;padding-bottom:.3em}html body h3{font-size:1.5em;font-weight:500}html body h4{font-size:1.25em;font-weight:600}html body h5{font-size:1.1em;font-weight:600}html body h6{font-size:1em;font-weight:600}html body h1,html body h2,html body h3,html body h4,html body h5{font-weight:600}html body h5{font-size:1em}html body h6{color:#5c5c5c}html body strong{color:#000}html body del{color:#5c5c5c}html body a:not([href]){color:inherit;text-decoration:none}html body a{color:#08c;text-decoration:none}html body a:hover{color:#00a3f5;text-decoration:none}html body img{max-width:100%}html body>p{margin-top:0;margin-bottom:16px;word-wrap:break-word}html body>ol,html body>ul{margin-bottom:16px}html body ol,html body ul{padding-left:2em}html body ol.no-list,html body ul.no-list{padding:0;list-style-type:none}html body ol ol,html body ol ul,html body ul ol,html body ul ul{margin-top:0;margin-bottom:0}html body li{margin-bottom:0}html body li.task-list-item{list-style:none}html body li>p{margin-top:0;margin-bottom:0}html body .task-list-item-checkbox{margin:0 .2em .25em -1.8em;vertical-align:middle}html body .task-list-item-checkbox:hover{cursor:pointer}html body blockquote{margin:16px 0;font-size:inherit;padding:0 15px;color:#5c5c5c;background-color:#f0f0f0;border-left:4px solid #d6d6d6}html body blockquote>:first-child{margin-top:0}html body blockquote>:last-child{margin-bottom:0}html body hr{height:4px;margin:32px 0;background-color:#d6d6d6;border:0 none}html body table{margin:10px 0 15px 0;border-collapse:collapse;border-spacing:0;display:block;width:100%;overflow:auto;word-break:normal;word-break:keep-all}html body table th{font-weight:700;color:#000}html body table td,html body table th{border:1px solid #d6d6d6;padding:6px 13px}html body dl{padding:0}html body dl dt{padding:0;margin-top:16px;font-size:1em;font-style:italic;font-weight:700}html body dl dd{padding:0 16px;margin-bottom:16px}html body code{font-family:Menlo,Monaco,Consolas,'Courier New',monospace;font-size:.85em;color:#000;background-color:#f0f0f0;border-radius:3px;padding:.2em 0}html body code::after,html body code::before{letter-spacing:-.2em;content:'\00a0'}html body pre>code{padding:0;margin:0;word-break:normal;white-space:pre;background:0 0;border:0}html body .highlight{margin-bottom:16px}html body .highlight pre,html body pre{padding:1em;overflow:auto;line-height:1.45;border:#d6d6d6;border-radius:3px}html body .highlight pre{margin-bottom:0;word-break:normal}html body pre code,html body pre tt{display:inline;max-width:initial;padding:0;margin:0;overflow:initial;line-height:inherit;word-wrap:normal;background-color:transparent;border:0}html body pre code:after,html body pre code:before,html body pre tt:after,html body pre tt:before{content:normal}html body blockquote,html body dl,html body ol,html body p,html body pre,html body ul{margin-top:0;margin-bottom:16px}html body kbd{color:#000;border:1px solid #d6d6d6;border-bottom:2px solid #c7c7c7;padding:2px 4px;background-color:#f0f0f0;border-radius:3px}@media print{html body{background-color:#fff}html body h1,html body h2,html body h3,html body h4,html body h5,html body h6{color:#000;page-break-after:avoid}html body blockquote{color:#5c5c5c}html body pre{page-break-inside:avoid}html body table{display:table}html body img{display:block;max-width:100%;max-height:100%}html body code,html body pre{word-wrap:break-word;white-space:pre}}.markdown-preview{width:100%;height:100%;box-sizing:border-box}.markdown-preview ul{list-style:disc}.markdown-preview ul ul{list-style:circle}.markdown-preview ul ul ul{list-style:square}.markdown-preview ol{list-style:decimal}.markdown-preview ol ol,.markdown-preview ul ol{list-style-type:lower-roman}.markdown-preview ol ol ol,.markdown-preview ol ul ol,.markdown-preview ul ol ol,.markdown-preview ul ul ol{list-style-type:lower-alpha}.markdown-preview .newpage,.markdown-preview .pagebreak{page-break-before:always}.markdown-preview pre.line-numbers{position:relative;padding-left:3.8em;counter-reset:linenumber}.markdown-preview pre.line-numbers>code{position:relative}.markdown-preview pre.line-numbers .line-numbers-rows{position:absolute;pointer-events:none;top:1em;font-size:100%;left:0;width:3em;letter-spacing:-1px;border-right:1px solid #999;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.markdown-preview pre.line-numbers .line-numbers-rows>span{pointer-events:none;display:block;counter-increment:linenumber}.markdown-preview pre.line-numbers .line-numbers-rows>span:before{content:counter(linenumber);color:#999;display:block;padding-right:.8em;text-align:right}.markdown-preview .mathjax-exps .MathJax_Display{text-align:center!important}.markdown-preview:not([data-for=preview]) .code-chunk .code-chunk-btn-group{display:none}.markdown-preview:not([data-for=preview]) .code-chunk .status{display:none}.markdown-preview:not([data-for=preview]) .code-chunk .output-div{margin-bottom:16px}.markdown-preview .md-toc{padding:0}.markdown-preview .md-toc .md-toc-details{margin:0;padding:0;border:none}.markdown-preview .md-toc summary.md-toc-link-wrapper{cursor:pointer;list-style-position:outside}.markdown-preview .md-toc summary.md-toc-link-wrapper::marker{font-size:.85em}.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link{display:inline;padding:.25rem 0}.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link div,.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link p{display:inline}.markdown-preview .md-toc .md-toc-link-wrapper.highlighted .md-toc-link{font-weight:800}.markdown-preview .md-toc .md-toc-link-wrapper[data-level='0']{margin-left:12px}.markdown-preview .md-toc .md-toc-link-wrapper[data-level='1']{margin-left:28px}.markdown-preview .md-toc .md-toc-link-wrapper[data-level='2']{margin-left:44px}.markdown-preview .md-toc .md-toc-link-wrapper[data-level='3']{margin-left:60px}.markdown-preview .md-toc .md-toc-link-wrapper[data-level='4']{margin-left:76px}.markdown-preview .md-toc .md-toc-link-wrapper[data-level='5']{margin-left:80px}.scrollbar-style::-webkit-scrollbar{width:8px}.scrollbar-style::-webkit-scrollbar-track{border-radius:10px;background-color:transparent}.scrollbar-style::-webkit-scrollbar-thumb{border-radius:5px;background-color:rgba(150,150,150,.66);border:4px solid rgba(150,150,150,.66);background-clip:content-box}html body[for=html-export]:not([data-presentation-mode]){position:relative;width:100%;height:100%;top:0;left:0;margin:0;padding:0;overflow:auto}html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{position:relative;top:0;min-height:100vh}@media screen and (min-width:914px){html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{padding:2em calc(50% - 457px + 2em)}}@media screen and (max-width:914px){html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{padding:2em}}@media screen and (max-width:450px){html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{font-size:14px!important;padding:1em}}@media print{html body[for=html-export]:not([data-presentation-mode]) #sidebar-toc-btn{display:none}}html body[for=html-export]:not([data-presentation-mode]) #sidebar-toc-btn{position:fixed;bottom:8px;left:8px;font-size:28px;cursor:pointer;color:inherit;z-index:99;width:32px;text-align:center;opacity:.4}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] #sidebar-toc-btn{opacity:1}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc{position:fixed;top:0;left:0;width:300px;height:100%;padding:32px 0 48px 0;font-size:14px;box-shadow:0 0 4px rgba(150,150,150,.33);box-sizing:border-box;overflow:auto;background-color:inherit}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar{width:8px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar-track{border-radius:10px;background-color:transparent}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar-thumb{border-radius:5px;background-color:rgba(150,150,150,.66);border:4px solid rgba(150,150,150,.66);background-clip:content-box}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc a{text-decoration:none}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc{padding:0 16px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-details{margin:0;padding:0;border:none}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link{display:inline;padding:.25rem 0}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link div,html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link p{display:inline}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper.highlighted .md-toc-link{font-weight:800}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper[data-level='0']{padding-left:0}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper[data-level='1']{padding-left:16px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper[data-level='2']{padding-left:32px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper[data-level='3']{padding-left:48px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper[data-level='4']{padding-left:64px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper[data-level='5']{padding-left:80px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview{left:300px;width:calc(100% - 300px);padding:2em calc(50% - 457px - 300px / 2);margin:0;box-sizing:border-box}@media screen and (max-width:1274px){html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview{padding:2em}}@media screen and (max-width:450px){html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview{width:100%}}html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-toc]) .markdown-preview{left:50%;transform:translateX(-50%)}html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-toc]) .md-sidebar-toc{display:none}
+/* Please visit the URL below for more information: */
+/*   https://shd101wyy.github.io/markdown-preview-enhanced/#/customize-css */
+
+      </style>
+      <script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function () {
+    // your code here
+  });
+</script>
+    </head>
+    <body for="html-export">
+      <div class="crossnote markdown-preview  ">
+      
+<h1 id="mochiutascbrmochikara-ura-net-scroll-lyrics-v01">MochiutaSC<br>(mochikara ura-net SCroll lyrics) v0.1 </h1>
+<h2 id="はじめに">はじめに </h2>
+<p>このツールは Music Video などのmp4動画に、スクロール歌詞を付けるものです。<br>
+歌詞は uta-net (<a href="https://www.uta-net.com/">https://www.uta-net.com/</a>)から取得します。<br>
+<img src="image/MochiutaSC_1.png" alt="mochikaraSC_1"></p>
+<h2 id="使いかたさくっと">使いかた（さくっと） </h2>
+<ol>
+<li>
+<p>MochiutaSC.zipを解凍してできたフォルダ内の、<code>MochiutaSC.exe</code>を起動します。</p>
+</li>
+<li>
+<p><strong>初回起動時のみ、MPC-BE <code>mpc-be64.exe</code>のパスを聞かれます。</strong></p>
+<ul>
+<li>MPC-BEをインストールしていない場合は、インストールしてそのパスを入力してください。</li>
+<li><a href="https://sourceforge.net/projects/mpcbe/">https://sourceforge.net/projects/mpcbe/</a></li>
+</ul>
+</li>
+<li>
+<p>起動したら、uta-net (<a href="https://www.uta-net.com/">https://www.uta-net.com/</a>)でお目当ての曲を探します。<br>
+みつけたら、そのURLにある曲のID を <strong><code>uta-net ID</code></strong> の所に入力してください。</p>
+<ul>
+<li>例えばURLが <a href="https://www.uta-net.com/song/100001/">https://www.uta-net.com/song/100001/</a> だったら、100001 を入力します。</li>
+</ul>
+</li>
+<li>
+<p><strong><code>[歌詞取得]</code></strong> を押すと歌詞を取得し、曲情報と歌詞を表示します。</p>
+</li>
+<li>
+<p>続けて、ダウンロードしたmp4ファイルを <strong>ドロップ</strong> してください。<br>
+すると <strong><code>曲の長さ</code></strong> 、<strong><code>出力ファイル</code></strong>  (assファイル)が入力されます。</p>
+<ul>
+<li>既にassファイルが存在する場合、その情報を曲情報と歌詞に表示します。</li>
+</ul>
+</li>
+<li>
+<p>修正するところがあれば適宜修正してください。</p>
+<ul>
+<li>入力必須項目は <strong><code>曲の長さ</code></strong> , <strong><code>出力ファイル</code></strong> , <strong><code>title</code></strong> , <strong><code>artist</code></strong> , <strong><code>[歌詞]</code></strong> だけです。</li>
+</ul>
+</li>
+<li>
+<p>入力が済んだら、 <strong><code>[ass作成]</code></strong> を押します。<br>
+するとassファイルが作成され、MPC-BEが起動しスクロール歌詞が表示されます。</p>
+<ul>
+<li>リアルタイムで歌詞の変更箇所を確認したい場合、MPC-BEの「オプション」-「字幕」で「修正検知後に字幕ファイルを自動で再読み込みする」にチェックを入れてください。</li>
+</ul>
+</li>
+<li>
+<p>スクロール歌詞の表示位置が画面のなかにおさまらない場合、以下のボタンで表示位置を調整してください。<br>
+MPC-BEで曲を再生中にこれらのボタンを押せば把握しやすいと思います。</p>
+<ul>
+<li><strong><code>始㊤</code></strong> :曲始めの歌詞の初期表示位置(Y座標)を120px上 ↑ にします。</li>
+<li><strong><code>始㊦</code></strong> :曲始めの歌詞の初期表示位置(Y座標)を120px下 ↓ にします。</li>
+<li><strong><code>終㊤</code></strong> :曲終わりの歌詞の最終表示位置(Y座標)を120px上 ↑ にします。</li>
+<li><strong><code>終㊦</code></strong> :曲終わりの歌詞の最終表示位置(Y座標)を120px下 ↓ にします。</li>
+<li><strong><code>reset</code></strong> :初期位置に戻します。初期位置は曲始めが480px、曲終わりが200pxです</li>
+</ul>
+</li>
+</ol>
+<p><strong>かんたん！</strong><br>
+あとはmp4とassをセットでもちからOFFに持ち込むなり、自宅カラオケするなりなんなり有効活用ください。<br>
+<strong>まずはやってみてください。バグレポート待っています！</strong></p>
+<h2 id="項目説明-詳しく知りたい人向け">項目説明 （詳しく知りたい人向け） </h2>
+<p>歌詞表示内容をカスタマイズしたい人は以下参照のこと。</p>
+<ul>
+<li>
+<p><code>uta-net ID</code>：<br>
+uta-netの曲番号、urlの /song/のあとの数字を入力してください。<br>
+URL <a href="https://www.uta-net.com/song/100001/">https://www.uta-net.com/song/100001/</a> ⇒ 100001</p>
+<ul>
+<li>必須項目ではありません。</li>
+<li>uta-netに歌詞がない場合、この値を入れずにタイトル、アーティスト、歌詞を入力してスクロール歌詞を作成することもできます。</li>
+<li>utaidは同一楽曲かどうかの判定に使用されます。なくても機能しますが、誤った値は入力しないでください。</li>
+</ul>
+</li>
+<li>
+<p><code>曲の長さ</code>：<br>
+mp4の曲の長さ(秒)、小数点以下は読み捨てます。<br>
+mp4ファイルをドロップすると、その動画の長さを取得します。</p>
+<ul>
+<li>歌詞表示位置の計算に使用します。</li>
+<li>直接記入もできますが、その場合は秒数で入力してください。mm:ss形式では動作しません。</li>
+</ul>
+</li>
+<li>
+<p><code>出力ファイル</code>：<br>
+出力するassのファイルパス。<br>
+mp4ファイルをドロップすると、同じフォルダにassファイルを作成します。</p>
+<ul>
+<li>直接記入もできますが、mp4と拡張子だけ異なる同じファイル名で保存してください。</li>
+</ul>
+</li>
+<li>
+<p><code>[曲情報]</code><br>
+uta-netで取得した楽曲の情報。<br>
+これらは楽曲開始後に画面左上に30秒間表示されます。</p>
+<ul>
+<li><code>title</code>：曲のタイトル。必須項目</li>
+<li><code>artist</code>：アーティスト名。必須項目</li>
+<li><code>tieup</code>：タイアップ。uta-netにはタイアップ情報が含まれていないことがありますので、適宜補完ください。</li>
+<li><code>year</code>：リリース年</li>
+<li><code>作詞</code>：楽曲の作詞者名</li>
+<li><code>作曲</code>：楽曲の作曲者名</li>
+<li><code>編曲</code>：楽曲の編曲者名</li>
+</ul>
+</li>
+<li>
+<p><code>[動画情報]</code><br>
+uta-netからは取得されません。必要に応じてmp4ファイルの情報を入力してください。</p>
+<ul>
+<li><code>videoID</code>：youtubeの動画ID。urlの watch?v= に続く英数文字、 &amp; の前までを入力してください。<br>
+URL <a href="https://www.youtube.com/watch?v=lkHlnWFnA0c&amp;list=RDlkHlnWFnA0c">https://www.youtube.com/watch?v=lkHlnWFnA0c&amp;list=RDlkHlnWFnA0c</a> ⇒ lkHlnWFnA0c
+<ul>
+<li><strong>プレイリストのアイコン表示に使用されます。</strong></li>
+<li>vididは同一動画かどうかの判定に使用されます。なくても機能しますが、誤った値は入力しないでください。</li>
+</ul>
+</li>
+<li><code>歌詞style</code>：表示歌詞の色、フォントを選択できます。デフォルトは1です。
+<ol>
+<li>黄緑／BIZ UDPゴシック</li>
+<li>水色／BIZ UDPゴシック</li>
+<li>黄色／BIZ UDPゴシック</li>
+<li>橙色／HD デジタル 教科書体 NP-R</li>
+<li>青色／BIZ UDP明朝 Medium</li>
+<li>桃色／HGP創英角ﾎﾟｯﾌﾟ体</li>
+<li>紅色／HGP創英ﾌﾟﾚｾﾞﾝｽEB</li>
+<li>灰色／HGP教科書体</li>
+</ol>
+</li>
+<li><code>動画type</code>：同一楽曲で複数の動画がある場合、これを識別するためのものです。<br>
+このツールでは自動的に “mv” が設定されます。</li>
+<li><code>動画名</code>：youtubeなど動画サイトでのタイトルを記入してください。
+<ul>
+<li><strong>曲情報と同様に、画面上部に表示されます</strong></li>
+</ul>
+</li>
+<li><code>開始座標</code>：</li>
+<li><code>終了座標</code>：<br>
+後述の [スクロール歌詞 位置修正] での値が設定されます。直接値を入力することもできます。<br>
+数字以外の文字を入れるとエラーが発生します。</li>
+</ul>
+</li>
+<li>
+<p><code>[歌詞]</code><br>
+歌詞エリアです。適宜改行や空行で表示内容を調整ください。</p>
+</li>
+<li>
+<p><code>[ass作成＆再生]</code><br>
+ボタン押下でassの作成とMPC-BEでの楽曲再生を行います。<br>
+出力が正しいかどうか確認してください。</p>
+</li>
+<li>
+<p><code>[スクロール歌詞 位置修正]</code></p>
+<ul>
+<li><code>始㊤</code>：開始時のY座標を120ピクセル上げる（減らす）</li>
+<li><code>始㊦</code>：開始時のY座標を120ピクセル下げる（増やす）<br>
+デフォルトでは、動画再生開始時に歌詞の先頭行をY座標480ピクセルのところに配置します。<br>
+画面サイズを1280px x 720pxの解像度とした場合の 480pxの位置ですので、ディスプレイの実際の解像度には依存しません。</li>
+<li><code>終㊤</code>：終了時のY座標を120ピクセル上げる(減らす)</li>
+<li><code>終㊦</code>：終了時のY座標を120ピクセル下げる(増やす)<br>
+デフォルトでは、動画再生終了時に歌詞の最終行をY座標200ピクセルのところに配置します。<br>
+画面サイズを1280px x 720pxの解像度とした場合の 200pxの位置ですので、ディスプレイの実際の解像度には依存しません。</li>
+<li><code>reset</code>:初期位置に戻します。<br>
+<code>開始座標</code>：、<code>終了座標</code>： に値が設定されていない場合、デフォルトの値を使用します。</li>
+</ul>
+</li>
+</ul>
+<p>以上</p>
+
+      </div>
+      
+      
+    
+    
+    
+    
+    
+    
+  
+    </body></html>
