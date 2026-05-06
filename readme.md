@@ -8,7 +8,9 @@
 
 ## 使いかた（さくっと）
 
-1. MochiutaSC.zipを解凍してできたフォルダ内の、`MochiutaSC.exe`を起動します。
+1. MochiutaSCのリリースページ (https://github.com/utasachi/MochiutaSC/releases) から
+最新の MochiutaSC.zip をダウンロードし、任意のフォルダで展開してください。
+作成されたフォルダ内の、`MochiutaSC.exe`を起動します。
 
 2. **初回起動時のみ、MPC-BE `mpc-be64.exe`のパスを聞かれます。**
     - MPC-BEをインストールしていない場合は、インストールしてそのパスを入力してください。
