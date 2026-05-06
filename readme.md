@@ -11,6 +11,8 @@
 1. MochiutaSCのリリースページ (https://github.com/utasachi/MochiutaSC/releases) から
 最新の MochiutaSC.zip をダウンロードし、任意のフォルダで展開してください。
 作成されたフォルダ内の、`MochiutaSC.exe`を起動します。
+    - SmartScreenの　**「WindowsによってPCが保護されました」** 画面が出る場合、 **「詳細情報」** を押し、その後 **「実行」** を押してください。
+    アプリの利用者数が少ないため警告が出ることがあります。
 
 2. **初回起動時のみ、MPC-BE `mpc-be64.exe`のパスを聞かれます。**
     - MPC-BEをインストールしていない場合は、インストールしてそのパスを入力してください。
