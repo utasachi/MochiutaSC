@@ -14,7 +14,7 @@
     - MPC-BEをインストールしていない場合は、インストールしてそのパスを入力してください。
     - https://sourceforge.net/projects/mpcbe/
 
-3. 起動したら、uta-net (https://www.uta-net.com/)でお目当ての曲を探します。
+3. 起動したら、uta-net (https://www.uta-net.com/) でお目当ての曲を探します。
 みつけたら、そのURLにある曲のID を **`uta-net ID`** の所に入力してください。
     - 例えばURLが https://www.uta-net.com/song/100001/ だったら、100001 を入力します。
 
