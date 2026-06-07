@@ -232,14 +232,8 @@ WriteAssf(assf) {
     file.Close()
 }
 
-; ドロップイベント
-HandleDrop(guiObj, guiCtrlObj, files, x, y) {
-    if !RegExMatch(files[1], "\.mp4$"){
-        MsgBox("mp4ファイルをドロップしてください")
-        return
-    }
-    mp4f := files[1]
-    assf := RegExReplace(files[1], "\.[^\.]+$", ".ass")
+LoadMp4(mp4f) {
+    assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
     cmd := 'bin\ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "' mp4f '"'
     o := RegExReplace(StdoutToVar(cmd), "[^\d\.]") + 0
     if (o != "")
@@ -249,6 +243,15 @@ HandleDrop(guiObj, guiCtrlObj, files, x, y) {
     oFile.Value := assf
     ReadAssf(assf)
 }
+
+HandleDrop(guiObj, guiCtrlObj, files, x, y) {
+    if !RegExMatch(files[1], "\.mp4$") {
+        MsgBox("mp4ファイルをドロップしてください")
+        return
+    }
+    LoadMp4(files[1])
+}
+
 ;歌詞取得
 btn01clk(*){
     if utaID.Value = "" {
@@ -342,7 +345,7 @@ btn14clk(*){
 ; メイン
 mpcPath := GetMPCPath()
 myGui := Gui()
-myGui.Title := "もちからuta-netスクロール歌詞付与 v0.1"
+myGui.Title := "もちからuta-netスクロール歌詞付与 v0.2"
 myGui.AddText("x5 y7" , "uta-net ID："),    utaID := myGui.AddEdit("x80 y5 w50")
 btn01 := myGui.AddButton("x140 y3 w60", "歌詞取得")
 myGui.AddText("x220 y7" , "uta-net URL：")
@@ -390,3 +393,6 @@ btn14.OnEvent("Click", btn14clk)
 myGui.OnEvent("DropFiles", HandleDrop)
 
 myGui.Show("w620 h460")
+
+if (A_Args.Length >= 1)
+    LoadMp4(A_Args[1])
