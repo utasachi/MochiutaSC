@@ -5,14 +5,17 @@
 #Requires AutoHotkey v2.0
 SetWorkingDir(A_ScriptDir)
 
-ASSHEAD := "MochiutaSC_header.ass"
+asshead := "MochiutaSC_header.ass"
 
 ; 標準出力の値を変数に
 StdoutToVar(cmd) {
     shell := ComObject("WScript.Shell")
     exec := shell.Exec(cmd)
+    while (exec.Status = 0)
+        Sleep(10)
     return exec.StdOut.ReadAll()
 }
+
 ;htmlデコード（簡易）
 HtmlDecode(s) {
     s := StrReplace(s, "＆", "&")
@@ -57,7 +60,7 @@ ClearsInfo(){
     title.Value := "" , artst.Value := "" , tieup.Value := "" , year.Value  := ""
     lyric.Value := "" , cmpst.Value := "" , arngm.Value := "" , kashi.Value := ""
     utaID.Value := "" , vidid.Value := "" , mtype.Value := "" , vname.Value := ""
-    ystart.Value := "" , yend.Value := "" , kstyle.Value := ""
+    ystart.Value := "" , yend.Value := "" , kstyle.Value := "", subdir.Value := ""
 }
 ;MPC-BEのパスを取得
 GetMPCPath() {
@@ -90,6 +93,8 @@ ReadAssf(assf){
             tieup.Value := m[1]
         } else if RegExMatch(line, "^;year=(.+?)\s*$", &m) {
             year.Value := m[1]
+        } else if RegExMatch(line, "^;subdir=(.+?)\s*$", &m) {
+            subdir.Value := m[1]
         } else if RegExMatch(line, "^;lyrics=(.+?)\s*$", &m) {
             lyric.Value := m[1]
         } else if RegExMatch(line, "^;composition=(.+?)\s*$", &m) {
@@ -126,7 +131,7 @@ WriteAssf(assf) {
     in_sinfo := false
     f01 := "", f02 := "", f03 := "", f04 := "", f05 := ""
     f06 := "", f07 := "", f08 := "", f11 := ""
-    text := FileRead(ASSHEAD, "UTF-8")
+    text := FileRead(asshead, "UTF-8")
     kstyle0 := (kstyle.Value is number) ? kstyle.Value + 0 : 0
     for line in StrSplit(text, "`n", "`r") {
         if RegExMatch(line, "^;f(\d+?)=(.*)", &m) {     ;ASSヘッダからDialogue定義行取得
@@ -135,7 +140,7 @@ WriteAssf(assf) {
             if ( kstyle0 >= 1 && kstyle0 <= 8) {   ;スタイル書き換え
                 val := RegExReplace(val, ",Kanji\d+,", ",Kanji" kstyle0 ",")
                 val := RegExReplace(val, ",sInfo\d+,", ",sInfo" kstyle0 ",")
-                val := RegExReplace(val, ",sRuby\d+,", ",Kanji" kstyle0 ",")
+                val := RegExReplace(val, ",sRuby\d+,", ",sRuby" kstyle0 ",")
             }
             switch num {
                 case 1:  f01 := val
@@ -160,6 +165,8 @@ WriteAssf(assf) {
                 lines.Push(";tieup=" tieup.Value)
             if (year.Value != "")  
                 lines.Push(";year="  year.Value)
+            if (subdir.Value != "")  
+                lines.Push(";subdir=" subdir.Value)
             if (lyric.Value != "") 
                 lines.Push(";lyrics=" lyric.Value)
             if (cmpst.Value != "") 
@@ -174,6 +181,12 @@ WriteAssf(assf) {
                 lines.Push(";mtype=" mtype.Value)
             if (vname.Value != "") 
                 lines.Push(";vidname=" vname.Value)
+            if (kstyle.Value != "") 
+                lines.Push(";kstyle=" kstyle.Value)
+            if (ystart.Value != "") 
+                lines.Push(";ystart=" ystart.Value)
+            if (yend.Value != "")
+                lines.Push(";yend=" yend.Value)
             continue
         }
         if (in_sinfo && SubStr(line, 1, 2) = ";[") {
@@ -233,6 +246,10 @@ WriteAssf(assf) {
 }
 
 LoadMp4(mp4f) {
+    if !RegExMatch(mp4f, "i)\.mp4$") || !FileExist(mp4f) {
+        MsgBox("mp4ファイルがありません")
+        return
+    }
     assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
     cmd := 'bin\ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "' mp4f '"'
     o := RegExReplace(StdoutToVar(cmd), "[^\d\.]") + 0
@@ -245,10 +262,6 @@ LoadMp4(mp4f) {
 }
 
 HandleDrop(guiObj, guiCtrlObj, files, x, y) {
-    if !RegExMatch(files[1], "\.mp4$") {
-        MsgBox("mp4ファイルをドロップしてください")
-        return
-    }
     LoadMp4(files[1])
 }
 
@@ -309,7 +322,7 @@ btn02clk(*){
         return
     WriteAssf(oFile.Value)
     mp4f := RegExReplace(oFile.Value, "\.ass$", ".mp4")
-    Run(mpcPath ' /play "' mp4f '"')
+    Run(mpcPath ' /play /sub "' oFile.Value '" "' mp4f '"')
 }
 ;ass位置修正
 AjastAssf(ys,ye){
@@ -354,21 +367,22 @@ myGui.AddText("x5 y32", "曲の長さ："),      durat := myGui.AddEdit("x80 y30
 myGui.AddText("x140 y32" , "mp4ファイルをここにドロップすると曲の長さ、出力ファイルを取得します")
 myGui.AddText("x5 y57", "出力ファイル："),  oFile := myGui.AddEdit("x80 y55 w500")
 ;SongInfo表示
-myGui.AddText("x10 y90", "[曲情報]")
-myGui.AddText("x10 y112", "title："),       title := myGui.AddEdit("x60 y110 w200")
-myGui.AddText("x10 y137", "artist："),      artst := myGui.AddEdit("x60 y135 w200")
-myGui.AddText("x10 y162", "tieup："),       tieup := myGui.AddEdit("x60 y160 w200")
-myGui.AddText("x10 y187", "year："),        year  := myGui.AddEdit("x60 y185 w50")
+myGui.AddText("x10  y90", "[曲情報]")
+myGui.AddText("x10  y112", "title："),      title := myGui.AddEdit("x60  y110 w200")
+myGui.AddText("x10  y137", "artist："),     artst := myGui.AddEdit("x60  y135 w200")
+myGui.AddText("x10  y162", "tieup："),      tieup := myGui.AddEdit("x60  y160 w200")
+myGui.AddText("x10  y187", "year："),       year  := myGui.AddEdit("x60  y185 w50")
+myGui.AddText("x120 y187", "subdir："),     subdir:= myGui.AddEdit("x160 y185 w100")
 
-myGui.AddText("x10 y217", "作詞："),        lyric := myGui.AddEdit("x60 y215 w200")
-myGui.AddText("x10 y242", "作曲："),        cmpst := myGui.AddEdit("x60 y240 w200")
-myGui.AddText("x10 y267", "編曲："),        arngm := myGui.AddEdit("x60 y265 w200")
+myGui.AddText("x10 y217", "作詞："),        lyric := myGui.AddEdit("x60  y215 w200")
+myGui.AddText("x10 y242", "作曲："),        cmpst := myGui.AddEdit("x60  y240 w200")
+myGui.AddText("x10 y267", "編曲："),        arngm := myGui.AddEdit("x60  y265 w200")
 
-myGui.AddText("x10 y297", "videoID："),     vidid := myGui.AddEdit("x70 y295 w60")
+myGui.AddText("x10 y297", "videoID："),     vidid := myGui.AddEdit("x70  y295 w60")
 myGui.AddText("x170 y297", "歌詞style："),  
 kstyle:= myGui.AddDropDownList("x230 y295 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
-myGui.AddText("x10 y322", "動画type："),    mtype := myGui.AddEdit("x70 y320 w100")
-myGui.AddText("x10 y347", "動画名："),      vname := myGui.AddEdit("x70 y345 w190")
+myGui.AddText("x10 y322", "動画type："),    mtype := myGui.AddEdit("x70  y320 w100")
+myGui.AddText("x10 y347", "動画名："),      vname := myGui.AddEdit("x70  y345 w190")
 myGui.AddText("x10  y372", "開始座標："),   ystart:= myGui.AddEdit("x70  y370 w60")
 myGui.AddText("x140 y372", "終了座標："),   yend  := myGui.AddEdit("x200 y370 w60")
 
@@ -394,5 +408,8 @@ myGui.OnEvent("DropFiles", HandleDrop)
 
 myGui.Show("w620 h460")
 
-if (A_Args.Length >= 1)
+if (A_Args.Length >= 1){
+    if (A_Args.Length >= 2 && A_Args[2] != "")
+        asshead := A_Args[2]
     LoadMp4(A_Args[1])
+}
