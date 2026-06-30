@@ -1,4 +1,4 @@
-# MochiutaSC<br>(mochikara ura-net SCroll lyrics) v0.2
+# MochiutaSC<br>(mochikara ura-net SCroll lyrics) v0.3
 
 ## はじめに
 このツールは Music Video などのmp4動画に、スクロール歌詞を付けるものです。
@@ -142,5 +142,6 @@ uta-netからは取得されません。必要に応じてmp4ファイルの情�
 利用は自己責任で行ってください。
 
 ## 変更履歴
+2026/06/30 v0.3 mp3にもざっくり対応、動画は固定で8分のものを再生します
 2026/06/08 v0.2 起動時にmp4を引数で受け付けるようにした、項目 subdir追加
 2026/05/06 v0.1 ざっくり作成

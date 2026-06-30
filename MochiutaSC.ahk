@@ -6,6 +6,7 @@
 SetWorkingDir(A_ScriptDir)
 
 asshead := "MochiutaSC_header.ass"
+bgv := "image\bgv8min_s.mp4"
 
 ; 標準出力の値を変数に
 StdoutToVar(cmd) {
@@ -246,8 +247,8 @@ WriteAssf(assf) {
 }
 
 LoadMp4(mp4f) {
-    if !RegExMatch(mp4f, "i)\.mp4$") || !FileExist(mp4f) {
-        MsgBox("mp4ファイルがありません")
+    if !RegExMatch(mp4f, "i)\.(mp3|mp4)$") || !FileExist(mp4f) {
+        MsgBox("mp3/mp4ファイルがありません")
         return
     }
     assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
@@ -322,9 +323,16 @@ btn02clk(*){
         return
     WriteAssf(oFile.Value)
     mp4f := RegExReplace(oFile.Value, "\.ass$", ".mp4")
-    Run(mpcPath ' /play /sub "' oFile.Value '" "' mp4f '"')
+    mp3f := RegExReplace(oFile.Value, "\.ass$", ".mp3")
+    if FileExist(mp4f) {
+        Run(mpcPath ' /play /sub "' oFile.Value '" "' mp4f '"')
+    } else if FileExist(mp3f) {
+        Run(mpcPath ' /play /sub "' oFile.Value '" /dub "' mp3f '" "' bgv '"')
+    } else {
+        MsgBox("ファイルが存在しない")
+    }
 }
-;ass位置修正
+    ;ass位置修正
 AjastAssf(ys,ye){
     if ! btnErrCk()
         return
@@ -358,13 +366,13 @@ btn14clk(*){
 ; メイン
 mpcPath := GetMPCPath()
 myGui := Gui()
-myGui.Title := "もちからuta-netスクロール歌詞付与 v0.2"
+myGui.Title := "もちからuta-netスクロール歌詞付与 v0.3"
 myGui.AddText("x5 y7" , "uta-net ID："),    utaID := myGui.AddEdit("x80 y5 w50")
 btn01 := myGui.AddButton("x140 y3 w60", "歌詞取得")
 myGui.AddText("x220 y7" , "uta-net URL：")
 myGui.AddLink("x300 y7", '<a href="https://www.uta-net.com/">https://www.uta-net.com/</a>')
 myGui.AddText("x5 y32", "曲の長さ："),      durat := myGui.AddEdit("x80 y30 w50")
-myGui.AddText("x140 y32" , "mp4ファイルをここにドロップすると曲の長さ、出力ファイルを取得します")
+myGui.AddText("x140 y32" , "mp3/mp4ファイルをここにドロップすると曲の長さ、出力ファイルを取得します")
 myGui.AddText("x5 y57", "出力ファイル："),  oFile := myGui.AddEdit("x80 y55 w500")
 ;SongInfo表示
 myGui.AddText("x10  y90", "[曲情報]")
