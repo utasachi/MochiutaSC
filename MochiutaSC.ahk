@@ -258,12 +258,43 @@ LoadMp4(mp4f) {
         durat.Value := Round(o, 0)
     else
         MsgBox("曲の長さ取得に失敗")
+    ClearsInfo()
     oFile.Value := assf
     ReadAssf(assf)
 }
 
 HandleDrop(guiObj, guiCtrlObj, files, x, y) {
     LoadMp4(files[1])
+}
+
+GetNeighborFile(currentFile, offset := 1, doLoop := false) {
+    SplitPath(currentFile, &name, &dir, &ext, &nameNoExt)
+    ; 基準となるメディアファイルを決定
+    if FileExist(dir "\" nameNoExt ".mp4")
+        targetFile := dir "\" nameNoExt ".mp4"
+    else if FileExist(dir "\" nameNoExt ".mp3")
+        targetFile := dir "\" nameNoExt ".mp3"
+    else
+        return ""
+    SplitPath(targetFile, , , &mediaExt)
+    files := []
+    Loop Files dir "\*." mediaExt
+        files.Push(A_LoopFileFullPath)
+    for i, file in files {
+        if (file = targetFile) {
+            target := i + offset
+            if (doLoop) {
+                if (target < 1)
+                    target := files.Length
+                if (target > files.Length)
+                    target := 1
+            }
+            return (target >= 1 && target <= files.Length)
+                ? files[target]
+                : ""
+        }
+    }
+    return ""
 }
 
 ;歌詞取得
@@ -344,6 +375,18 @@ AjastAssf(ys,ye){
     yend.Value   := yend.Value   + ye
     WriteAssf(oFile.Value)
 }
+btn03clk(*){
+    SplitPath(oFile.Value, , , , &name_no_ext)
+    FENRIR := "https://search.fenrir-inc.com/?hl=ja&channel=sleipnir_s&safe=off&lr=all&fr=ss&q="
+    requrl := FENRIR "歌ネット 歌詞ページ " rep(name_no_ext)
+    Run(requrl)
+}
+btn04clk(*){
+    LoadMp4(GetNeighborFile(oFile.Value,-1))
+}
+btn05clk(*){
+    LoadMp4(GetNeighborFile(oFile.Value,1))
+}
 btn10clk(*){
     if ! btnErrCk()
         return
@@ -366,13 +409,16 @@ btn14clk(*){
 ; メイン
 mpcPath := GetMPCPath()
 myGui := Gui()
-myGui.Title := "もちからuta-netスクロール歌詞付与 v0.3"
+myGui.Title := "もちからuta-netスクロール歌詞付与 v0.4"
 myGui.AddText("x5 y7" , "uta-net ID："),    utaID := myGui.AddEdit("x80 y5 w50")
 btn01 := myGui.AddButton("x140 y3 w60", "歌詞取得")
 myGui.AddText("x220 y7" , "uta-net URL：")
 myGui.AddLink("x300 y7", '<a href="https://www.uta-net.com/">https://www.uta-net.com/</a>')
+btn03 := myGui.AddButton("x480 y3 w100", "ファイル名から検索")
 myGui.AddText("x5 y32", "曲の長さ："),      durat := myGui.AddEdit("x80 y30 w50")
-myGui.AddText("x140 y32" , "mp3/mp4ファイルをここにドロップすると曲の長さ、出力ファイルを取得します")
+btn04 := myGui.AddButton("x480 y30 w50", "▲前")
+btn05 := myGui.AddButton("x530 y30 w50", "次▼")
+myGui.AddText("x140 y32" , "mp3/mp4ファイルをドロップすると曲の長さ、出力ファイルを取得します")
 myGui.AddText("x5 y57", "出力ファイル："),  oFile := myGui.AddEdit("x80 y55 w500")
 ;SongInfo表示
 myGui.AddText("x10  y90", "[曲情報]")
@@ -407,6 +453,9 @@ btn14 := myGui.AddButton("x220 y420 w40", "終㊦")
 
 btn01.OnEvent("Click", btn01clk)
 btn02.OnEvent("Click", btn02clk)
+btn03.OnEvent("Click", btn03clk)
+btn04.OnEvent("Click", btn04clk)
+btn05.OnEvent("Click", btn05clk)
 btn10.OnEvent("Click", btn10clk)
 btn11.OnEvent("Click", btn11clk)
 btn12.OnEvent("Click", btn12clk)
