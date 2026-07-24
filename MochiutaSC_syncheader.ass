@@ -1,0 +1,34 @@
+[Script Info]
+; MochiutaSC(mochikara ura-net SCroll lyrics)で使用します
+;[Song Info]
+;[テンプレート]
+;f01=Dialogue: 0,0:00:00.00,0:00:30.00,Kanji1,,0000,0000,0000,LineSync,{\an4}{\pos( 60,100)}{\fad(1500,2500)}
+;f02=Dialogue: 0,0:00:00.00,0:00:30.00,sInfo1,,0000,0000,0000,LineSync,{\an4}{\pos(100,140)}{\fad(1500,2500)}歌：
+;f03=Dialogue: 0,0:00:00.00,0:00:30.00,sInfo1,,0000,0000,0000,LineSync,{\an4}{\pos(100,180)}{\fad(1500,2500)}
+;f04=Dialogue: 0,0:00:00.00,0:00:30.00,sInfo1,,0000,0000,0000,LineSync,{\an4}{\pos(100,220)}{\fad(1500,2500)}
+;f05=Dialogue: 0,0:00:00.00,0:00:30.00,sRuby1,,0000,0000,0000,LineSync,{\an4}{\pos(100,260)}{\fad(1500,2500)}作詞：
+;f06=Dialogue: 0,0:00:00.00,0:00:30.00,sRuby1,,0000,0000,0000,LineSync,{\an4}{\pos(100,290)}{\fad(1500,2500)}作曲：
+;f07=Dialogue: 0,0:00:00.00,0:00:30.00,sRuby1,,0000,0000,0000,LineSync,{\an4}{\pos(100,320)}{\fad(1500,2500)}編曲：
+;f08=Dialogue: 0,0:00:00.00,0:00:30.00,sRuby1,,0000,0000,0000,LineSync,{\an4}{\pos(40,40)}{\fad(1500,2500)}動画：
+;f11=Dialogue:{ii},0:{ss},0:{mm},Kanji1,,0000,0000,0000,LineSync1,{\move({xx},650,{xx},600,{t1_1},{t1_0})\alpha&H80&\fscx150\fscy1\t(0,200,\fscx100\fscy100)}
+;f12=Dialogue:{ii},0:{mm},0:{e2},Kanji1,,0000,0000,0000,LineSync2,{\move({xx},600,{xx},550,{t2_1},{t2_0})\alpha&H10&\t({t2_1},{t2_0},\alpha&H80&)\t({t3_1},{t3_0},\fscx150\fscy1\alpha&HFF&)}
+
+Title: もちからass自動生成v7 LRCLIB ver.
+Original Script: げろりん
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+Timer: 100.0000
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: sRuby1,BIZ UDPゴシック,24,&H60774433,&H60996655,&H60FFAA99,&H99000000,-1,0,0,0,100,100,0,0,1,5,1,5,30,30,15,128
+Style: sInfo1,BIZ UDPゴシック,32,&H60774433,&H60996655,&H60FFAA99,&H99000000,-1,0,0,0,100,100,0,0,1,5,1,5,30,30,15,128
+Style: Kanji1,BIZ UDPゴシック,40,&H60774433,&H60996655,&H60FFAA99,&H99000000,-1,0,0,0,100,100,0,0,1,4,3,5,30,30,15,128
+Style: sRuby2,HGP教科書体,24,&H60665555,&H60998888,&H60FFEEEE,&H99000000,-1,0,0,0,100,100,0,0,1,5,1,5,30,30,15,128
+Style: sInfo2,HGP教科書体,32,&H60665555,&H60998888,&H60FFEEEE,&H99000000,-1,0,0,0,100,100,0,0,1,5,1,5,30,30,15,128
+Style: Kanji2,HGP教科書体,40,&H60665555,&H60998888,&H60FFEEEE,&H99000000,-1,0,0,0,100,100,0,0,1,4,3,5,30,30,15,128
+
+[Events]
+Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text

@@ -1,24 +1,37 @@
 ; MochiutaSC.ahk
-; もちからuta-netスクロール歌詞付与 v0.1
+; もちからuta-netスクロール歌詞付与 v0.5
 ; https://ahkwiki.net/
 
 #Requires AutoHotkey v2.0
 SetWorkingDir(A_ScriptDir)
+;MsgBox A_AhkVersion
 
-asshead := "MochiutaSC_header.ass"
+asshead  := "MochiutaSC_header.ass"
+assshead := "MochiutaSC_syncheader.ass"
 bgv := "image\bgv8min_s.mp4"
 
-; 標準出力の値を変数に
-StdoutToVar(cmd) {
+FENRIR := "https://search.fenrir-inc.com/?hl=ja&channel=sleipnir_s&safe=off&lr=all&fr=ss&q="
+FENRIR_U := FENRIR "歌ネット 歌詞ページ "
+FENRIR_Y := FENRIR "youtube "
+
+StdoutToVar(cmd) {              ;標準出力の値を変数に
     shell := ComObject("WScript.Shell")
     exec := shell.Exec(cmd)
     while (exec.Status = 0)
         Sleep(10)
     return exec.StdOut.ReadAll()
 }
-
-;htmlデコード（簡易）
-HtmlDecode(s) {
+ar2txtb(arr){                   ;配列を改行区切りに
+    text := ""
+    for i, v in arr
+        text .= i ": " v "`n"
+    return text
+}
+GetF(path) {                    ;ファイル名部分だけ返す
+    SplitPath path, &name
+    return name
+}
+HtmlDecode(s) {                 ;htmlデコード（簡易）
     s := StrReplace(s, "＆", "&")
     s := StrReplace(s, "；", ";")
     s := StrReplace(s, "&nbsp;", " ")
@@ -30,8 +43,35 @@ HtmlDecode(s) {
     s := StrReplace(s, "&#39;", "'")
     return s
 }
-;文字列置き換え（簡易）
-rep(s) {
+UriEncode(str, encoding := "UTF-8"){        ;unicodeにエンコード
+    out := ""
+    buf := Buffer(StrPut(str, encoding))
+    StrPut(str, buf, encoding)
+    Loop buf.Size - 1 {
+        b := NumGet(buf, A_Index - 1, "UChar")
+        if (b >= 0x30 && b <= 0x39)      ; 0-9
+         || (b >= 0x41 && b <= 0x5A)     ; A-Z
+         || (b >= 0x61 && b <= 0x7A)     ; a-z
+         || InStr("-_.~", Chr(b))
+            out .= Chr(b)
+        else
+            out .= "%" Format("{:02X}", b)
+    }
+    return out
+}
+ResponseBodyToText(body, charset := "utf-8"){  ;レスポンスのbodyをテキストに設定
+    stm := ComObject("ADODB.Stream")
+    stm.Type := 1          ; binary
+    stm.Open()
+    stm.Write(body)
+    stm.Position := 0
+    stm.Type := 2          ; text
+    stm.Charset := charset
+    text := stm.ReadText()
+    stm.Close()
+    return text
+}
+rep(s) {                    ;文字列置き換え（簡易）
     if (s = "")
         return ""
     ; HTMLエンティティをデコード
@@ -49,22 +89,48 @@ rep(s) {
         s := StrReplace(s, k, v)
     return s
 }
-; 秒 → mm:ss に変換
-sec2mmss(duration) {
+sec2mmss(duration) {        ;秒 → mm:ss に変換
     sec := duration + 0
     mm := Floor(sec / 60)
     ss := Mod(sec, 60)
     return Format("{:02}:{:02}", mm, ss)
 }
-;曲情報消す
-ClearsInfo(){
+TimeDiffMs(t1, t2){         ;t1とt2の差分の時間をミリ秒で返す
+    RegExMatch(t1, "(\d{2}):(\d{2})\.(\d{2})", &m1)
+    ms1 := (m1[1] * 60 + m1[2]) * 1000 + m1[3] * 10
+    RegExMatch(t2, "(\d{2}):(\d{2})\.(\d{2})", &m2)
+    ms2 := (m2[1] * 60 + m2[2]) * 1000 + m2[3] * 10
+    return ms2 - ms1
+}
+SecToLrcTime(sec){          ;秒表記をLRCの[99:99.99]形式に
+    min := Floor(sec / 60)
+    sec2 := Floor(Mod(sec, 60))
+    cs := Round((sec - Floor(sec)) * 100)
+    if (cs = 100) {    ;丸めで100になった場合の補正
+        cs := 0
+        sec2++
+        if (sec2 = 60) {
+            sec2 := 0
+            min++
+        }
+    }
+    return Format("{:02}:{:02}.{:02}", min, sec2, cs)
+}
+HasLineTag(){       ;行タグかどうか判定
+    for line in StrSplit(kashi.Value, "`n", "`r"){
+        if RegExMatch(line, "^\[\d{2}:\d{2}\.\d{2,3}\]")
+            return true
+    }
+    return false
+}
+ClearsInfo(){           ;曲情報消す
     title.Value := "" , artst.Value := "" , tieup.Value := "" , year.Value  := ""
     lyric.Value := "" , cmpst.Value := "" , arngm.Value := "" , kashi.Value := ""
     utaID.Value := "" , vidid.Value := "" , mtype.Value := "" , vname.Value := ""
-    ystart.Value := "" , yend.Value := "" , kstyle.Value := "", subdir.Value := ""
+    ystart.Value := "", yend.Value := "" ,  kstyle.Value := "", subdir.Value := ""
+    loopvid.Value := ""
 }
-;MPC-BEのパスを取得
-GetMPCPath() {
+GetMPCPath() {          ;MPC-BEのパスを取得
     ini := "MochikaraSC.ini"
     key := "mpcpath"
     path := IniRead(ini, "path", key, "")
@@ -77,117 +143,88 @@ GetMPCPath() {
     IniWrite(selected, ini, "path", key)
     return selected
 }
-; ass読込
-ReadAssf(assf){
-    if !FileExist(assf) { 
-        Return False
-    }
+ReadAssf(assf) {        ;ass読込 スクロール歌詞/行同期歌詞 両対応
+    if !FileExist(assf)
+        return False
     ClearsInfo()
-    for line in StrSplit(FileRead(assf, "UTF-8"), "`n", "`r") {
-        if RegExMatch(line, "^;utaid=(\d+)", &m) {
-            utaID.Value := m[1]
-        } else if RegExMatch(line, "^;title=(.+?)\s*$", &m) {
-            title.Value := m[1]
-        } else if RegExMatch(line, "^;artist=(.+?)\s*$", &m) {
-            artst.Value := m[1]
-        } else if RegExMatch(line, "^;tieup=(.+?)\s*$", &m) {
-            tieup.Value := m[1]
-        } else if RegExMatch(line, "^;year=(.+?)\s*$", &m) {
-            year.Value := m[1]
-        } else if RegExMatch(line, "^;subdir=(.+?)\s*$", &m) {
-            subdir.Value := m[1]
-        } else if RegExMatch(line, "^;lyrics=(.+?)\s*$", &m) {
-            lyric.Value := m[1]
-        } else if RegExMatch(line, "^;composition=(.+?)\s*$", &m) {
-            cmpst.Value := m[1]
-        } else if RegExMatch(line, "^;arrangement=(.+?)\s*$", &m) {
-            arngm.Value := m[1]
-        } else if RegExMatch(line, "^;vidid=(.+?)\s*$", &m) {
-            vidid.Value := m[1]
-        } else if RegExMatch(line, "^;mtype=(.+?)\s*$", &m) {
-            mtype.Value := m[1]
-        } else if RegExMatch(line, "^;vidname=(.+?)\s*$", &m) {
-            vname.Value := m[1]
-        } else if RegExMatch(line, "^;ystart=(.+?)\s*$", &m) {
-            ystart.Value := m[1]
-        } else if RegExMatch(line, "^;yend=(.+?)\s*$", &m) {
-            yend.Value := m[1]
-        } else if RegExMatch(line, "^;kstyle=(.+?)\s*$", &m) {
-            kstyle.Value := m[1]
-        } else if RegExMatch(line, "^Dialogue:\s*1,") {
-            pos := InStr(line, "}", false, -1)  ; 後ろから検索
-            if pos {
-                text := SubStr(line, pos + 1)
-                kashi.Value .= text . "`n"
+    fields := Map(
+        "utaid", utaID,         "title", title,     "artist", artst,    "tieup", tieup,
+        "year", year,           "subdir", subdir,   "lyrics", lyric,    "composition", cmpst,
+        "arrangement", arngm,   "vidid", vidid,     "mtype", mtype,     "vidname", vname,
+        "ystart", ystart,       "yend", yend,       "kstyle", kstyle,   "loopvid", loopvid
+    )
+    text := FileRead(assf, "UTF-8")
+    isLineSync := InStr(text, ",LineSync")
+    lastIdx := 0
+    for line in StrSplit(text, "`n", "`r") {
+        if RegExMatch(line, "^;([^=]+)=(.*?)\s*$", &m) {
+            if (m[1] = "kstyle") {
+                try fields[m[1]].Text := m[2]
+            } else if fields.Has(m[1]) {
+                fields[m[1]].Value := m[2]
+            }
+        }
+        if isLineSync {
+            ; 行同期歌詞
+            if RegExMatch(line, "^Dialogue:\s*(\d+),([^,]+),([^,]+),.*?,LineSync.*,.*\}(.*)$", &m) {
+                idx := Integer(m[1])
+                if (idx > 0 && idx != lastIdx) {
+                    lrcTime := RegExReplace(m[3], "^0:")
+                    kashi.Value .= "[" lrcTime "] " m[4] "`n"
+                    lastIdx := idx
+                }
+            }
+        } else {
+            ; 通常スクロール歌詞
+            if RegExMatch(line, "^Dialogue:\s*1,") {
+                if pos := InStr(line, "}", false, -1)
+                    kashi.Value .= SubStr(line, pos + 1) "`n"
             }
         }
     }
-    if SubStr(kashi.Value, -1) = "`n" {
+    if (SubStr(kashi.Value, -1) = "`n")
         kashi.Value := SubStr(kashi.Value, 1, -1)
-    }
+    return True
 }
-; ass書き込み
-WriteAssf(assf) {
+
+AppendSongInfo(lines){  ;ass書込共通関数　曲情報追加
+    lines.Push(";[Song Info]")
+    info := [
+        ["title",       title],     ["artist",      artst],     ["tieup",       tieup],
+        ["year",        year],      ["subdir",      subdir],    ["lyrics",      lyric],
+        ["composition", cmpst],     ["arrangement", arngm],     ["utaid",       utaID],
+        ["vidid",       vidid],     ["mtype",       mtype],     ["vidname",     vname],
+        ["kstyle",      kstyle],    ["ystart",      ystart],    ["yend",        yend],
+        ["loopvid",     loopvid] ]
+        for item in info {
+            if (item[1] = "kstyle")
+                value := item[2].Text
+            else
+                value := item[2].Value
+            if (value != "")
+                lines.Push(";" item[1] "=" value)
+        }
+}
+LoadAssHeader(headfile){    ;ass書込共通関数 ヘッダ読込
     lines := []
+    f := Map()
     in_sinfo := false
-    f01 := "", f02 := "", f03 := "", f04 := "", f05 := ""
-    f06 := "", f07 := "", f08 := "", f11 := ""
-    text := FileRead(asshead, "UTF-8")
-    kstyle0 := (kstyle.Value is number) ? kstyle.Value + 0 : 0
+    text := FileRead(headfile, "UTF-8")
     for line in StrSplit(text, "`n", "`r") {
-        if RegExMatch(line, "^;f(\d+?)=(.*)", &m) {     ;ASSヘッダからDialogue定義行取得
+        if RegExMatch(line, "^;f(\d+)=(.*)", &m) {
             num := Integer(m[1])
             val := m[2]
-            if ( kstyle0 >= 1 && kstyle0 <= 8) {   ;スタイル書き換え
-                val := RegExReplace(val, ",Kanji\d+,", ",Kanji" kstyle0 ",")
-                val := RegExReplace(val, ",sInfo\d+,", ",sInfo" kstyle0 ",")
-                val := RegExReplace(val, ",sRuby\d+,", ",sRuby" kstyle0 ",")
+            if kstyle.Text != "" {
+                val := RegExReplace(val, ",Kanji\d+,", ",Kanji" kstyle.Text ",")
+                val := RegExReplace(val, ",sInfo\d+,", ",sInfo" kstyle.Text ",")
+                val := RegExReplace(val, ",sRuby\d+,", ",sRuby" kstyle.Text ",")
             }
-            switch num {
-                case 1:  f01 := val
-                case 2:  f02 := val
-                case 3:  f03 := val
-                case 4:  f04 := val
-                case 5:  f05 := val
-                case 6:  f06 := val
-                case 7:  f07 := val
-                case 8:  f08 := val
-                case 11: f11 := val
-            }
+            f[num] := val
+            continue
         }
-        if SubStr(line, 1, 13) = ";[Song Info]" {       ;Songinfo挿入
+        if (SubStr(line, 1, 13) = ";[Song Info]") {
             in_sinfo := true
-            lines.Push(";[Song Info]")
-            if (title.Value != "") 
-                lines.Push(";title=" title.Value)
-            if (artst.Value != "") 
-                lines.Push(";artist=" artst.Value)
-            if (tieup.Value != "") 
-                lines.Push(";tieup=" tieup.Value)
-            if (year.Value != "")  
-                lines.Push(";year="  year.Value)
-            if (subdir.Value != "")  
-                lines.Push(";subdir=" subdir.Value)
-            if (lyric.Value != "") 
-                lines.Push(";lyrics=" lyric.Value)
-            if (cmpst.Value != "") 
-                lines.Push(";composition=" cmpst.Value)
-            if (arngm.Value != "") 
-                lines.Push(";arrangement=" arngm.Value)
-            if (utaID.Value != "") 
-                lines.Push(";utaid=" utaID.Value)
-            if (vidid.Value != "") 
-                lines.Push(";vidid=" vidid.Value)
-            if (mtype.Value != "") 
-                lines.Push(";mtype=" mtype.Value)
-            if (vname.Value != "") 
-                lines.Push(";vidname=" vname.Value)
-            if (kstyle.Value != "") 
-                lines.Push(";kstyle=" kstyle.Value)
-            if (ystart.Value != "") 
-                lines.Push(";ystart=" ystart.Value)
-            if (yend.Value != "")
-                lines.Push(";yend=" yend.Value)
+            AppendSongInfo(lines)
             continue
         }
         if (in_sinfo && SubStr(line, 1, 2) = ";[") {
@@ -199,60 +236,120 @@ WriteAssf(assf) {
             continue
         lines.Push(line)
     }
-    ; Dialogue部分記入
-    if (title.Value != "") 
-        lines.Push(f01 title.Value)
-    if (artst.Value != "") 
-        lines.Push(f02 artst.Value)
-    if (tieup.Value != "") 
-        lines.Push(f03 tieup.Value)
-    if (year.Value != "") {
-        if (tieup.Value != "") 
-            lines.Push(f04 year.Value)
-        else
-            lines.Push(f03 year.Value)
-    }  
-    if (lyric.Value != "") 
-        lines.Push(f05 lyric.Value)
-    if (cmpst.Value != "") 
-        lines.Push(f06 cmpst.Value)
-    if (arngm.Value != "") 
-        lines.Push(f07 arngm.Value)
-    if (vname.Value != "") 
-        lines.Push(f08 vname.Value)
-    f11 := StrReplace(f11, "ee:ee", sec2mmss(durat.Value))   ;duration埋め込み
-    kashiText := RegExReplace(kashi.Value, "(\r?\n)+$")     ;最後の空行のみ削除
-    kashiLen := StrSplit(kashiText, "`n", "`r").Length      ;歌詞行数
-    t1 := 480
-    if RegExMatch(ystart.Value, "^-?\d+$")
-        t1 := ystart.Value
-    t2 := 200 - ((kashiLen - 1) * 40)
-    if RegExMatch(yend.Value, "^-?\d+$")
-        t2 := yend.Value  - ((kashiLen - 1) * 40)
+    return {
+        lines: lines,
+        f: f
+    }
+}
+AppendSongDialogue(lines, f){       ;ass書込共通関数 曲情報(Dialogue)を追加
+    items := [
+        [1, title], [2, artst], [3, tieup], [5, lyric], [6, cmpst], [7, arngm], [8, vname]
+    ]
+    for item in items
+        if (item[2].Value != "")
+            lines.Push(f[item[1]] item[2].Value)
+    if (year.Value != "")
+        lines.Push(f[tieup.Value != "" ? 4 : 3] year.Value)
+}
+AppendNormalLyrics(lines, f11) {    ;スクロール歌詞 歌詞付与
+    f11 := StrReplace(f11, "ee:ee", sec2mmss(durat.Value))   ; duration埋め込み
+    kashiText := RegExReplace(kashi.Value, "(\r?\n)+$")      ; 最後の空行のみ削除
+    kashiLen := StrSplit(kashiText, "`n", "`r").Length       ; 歌詞行数
+    t1 := RegExMatch(ystart.Value, "^-?\d+$") ? ystart.Value : 480
+    t2 := RegExMatch(yend.Value, "^-?\d+$")
+        ? yend.Value - ((kashiLen - 1) * 40)
+        : 200 - ((kashiLen - 1) * 40)
     for line in StrSplit(kashiText, "`n", "`r") {
-        f11a := StrReplace(f11 , "t1", t1)
-        f11a := StrReplace(f11a, "t2", t2)
-        lines.Push(f11a line)
-        t1 := t1 + 40
-        t2 := t2 + 40
+        line_f11 := StrReplace(f11, "t1", t1)
+        line_f11 := StrReplace(line_f11, "t2", t2)
+        lines.Push(line_f11 line)
+        t1 += 40
+        t2 += 40
     }
-
+}
+AppendSyncLyrics(lines, f11, f12){  ;同期歌詞 歌詞付与
+    kashiText := RegExReplace(kashi.Value, "(\r?\n)+$")     ;最後の空行のみ削除
+    lyrics := []
+    for line in StrSplit(kashiText, "`n", "`r") {
+        if RegExMatch(line, "^\[(\d{2}:\d{2}\.\d{2})(\d?)\]\s*(.*)$", &m) {
+            lyrics.Push({
+                time: m[1],
+                text: m[3]
+            })
+        }
+    }
+    nextX := 480
+    artmsg := ""
+    Loop lyrics.Length {
+        i := A_Index
+        ss := (i = 1) ? "00:00.00" : lyrics[i - 1].time
+        mm := lyrics[i].time
+        ee := (i = lyrics.Length) ? SecToLrcTime(durat.Value) : lyrics[i + 1].time
+        e2 := (i + 1 >= lyrics.Length) ? SecToLrcTime(durat.Value) : lyrics[i + 2].time
+        if StrLen(lyrics[i].text) > 40{
+            artmsg := "1行の文字数が40文字を超えています"
+        }
+        if (lyrics[i].text = "" || (i < lyrics.Length && lyrics[i + 1].text = "")) {
+            xx := 640
+            nextX := 480
+        } else if (StrLen(lyrics[i].text) > 25) {
+            xx := 640
+            nextX := 480
+        } else {
+            xx := nextX
+            nextX := (nextX = 480) ? 800 : 480
+        }
+        t1_0 := Max(TimeDiffMs(ss, mm), 0)
+        t1_1 := Max(t1_0 - 500, 0)
+        t2_0 := Max(TimeDiffMs(mm, ee), 0)
+        t2_1 := Max(t2_0 - 500, 0)
+        t3_0 := Min(Max(TimeDiffMs(mm, e2), 0), 30000)
+        t3_1 := Max(t3_0 - 500, 0)
+        vars := Map(
+            "{ii}", i,  "{ss}", ss, "{mm}", mm, "{ee}", ee, "{e2}", e2, "{xx}", xx,
+            "{t1_0}", t1_0, "{t1_1}", t1_1,
+            "{t2_0}", t2_0, "{t2_1}", t2_1,
+            "{t3_0}", t3_0, "{t3_1}", t3_1 )
+        line_f11 := f11
+        line_f12 := f12
+        for k, v in vars {
+            line_f11 := StrReplace(line_f11, k, v)
+            line_f12 := StrReplace(line_f12, k, v)
+        }
+        lines.Push(line_f11 lyrics[i].text)
+        lines.Push(line_f12 lyrics[i].text)
+    }
+    if (artmsg != ""){
+        MsgBox(artmsg)
+    }
+}
+SaveLines(path, lines) {            ;ass書込共通関数 行保存
     out := ""
-    for i, l in lines {
-        out .= (i > 1 ? "`r`n" : "") l
-    }
-    file := FileOpen(assf, "w", "UTF-8")
-    file.Write(out)
-    file.Close()
+    for i, line in lines
+        out .= (i = 1 ? "" : "`r`n") line
+    FileOpen(path, "w", "UTF-8").Write(out)
+}
+WriteAssf(assf){                    ;ass書き込み
+    ass := LoadAssHeader(asshead)
+    AppendSongDialogue(ass.lines, ass.f)
+    AppendNormalLyrics(ass.lines, ass.f[11])
+    SaveLines(assf, ass.lines)
+}
+WriteSyncAssf(assf){                ;ass同期書き込み
+    ass := LoadAssHeader(assshead)
+    AppendSongDialogue(ass.lines, ass.f)
+    AppendSyncLyrics(ass.lines, ass.f[11], ass.f[12])
+    SaveLines(assf, ass.lines)
 }
 
-LoadMp4(mp4f) {
+LoadMp4(mp4f) {                     ;mp3/mp4読込
+    stat.Value := ""
     if !RegExMatch(mp4f, "i)\.(mp3|mp4)$") || !FileExist(mp4f) {
-        MsgBox("mp3/mp4ファイルがありません")
+        stat.Value := "mp3/mp4ファイルがありません" , MsgBox(stat.Value)
         return
     }
     assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
-    cmd := 'bin\ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "' mp4f '"'
+    cmd := 'bin\ffprobe.exe -v error -show_entries format=duration -of default=nw=1:nk=1 "' mp4f '"'
     o := RegExReplace(StdoutToVar(cmd), "[^\d\.]") + 0
     if (o != "")
         durat.Value := Round(o, 0)
@@ -261,13 +358,13 @@ LoadMp4(mp4f) {
     ClearsInfo()
     oFile.Value := assf
     ReadAssf(assf)
+    stat.Value := "ロード : " GetF(mp4f)
 }
-
-HandleDrop(guiObj, guiCtrlObj, files, x, y) {
+HandleDrop(guiObj, guiCtrlObj, files, x, y) {       ;ファイルドロップのハンドル
     LoadMp4(files[1])
 }
 
-GetNeighborFile(currentFile, offset := 1, doLoop := false) {
+GetNeighborFile(currentFile, offset := 1, doLoop := false) {    ; 同一フォルダの次ファイル/前ファイル検索
     SplitPath(currentFile, &name, &dir, &ext, &nameNoExt)
     ; 基準となるメディアファイルを決定
     if FileExist(dir "\" nameNoExt ".mp4")
@@ -297,10 +394,68 @@ GetNeighborFile(currentFile, offset := 1, doLoop := false) {
     return ""
 }
 
-;歌詞取得
-btn01clk(*){
+AjastAssf(ys,ye){       ;スクロール歌詞 ass位置修正
+    stat.Value := ""
+    if ! btnErrCk()
+        return
+    if HasLineTag(){
+        stat.Value := "行タグ歌詞には使えません", MsgBox(stat.Value)
+        return
+    }
+    if (ystart.Value = "")
+        ystart.Value := 480
+    if (yend.Value = "")
+        yend.Value := 200
+    ystart.Value := ystart.Value + ys
+    yend.Value   := yend.Value   + ye
+    WriteAssf(oFile.Value)
+}
+
+CreateAssf(fname){      ;一括実行用assファイル作成
+    SplitPath(fname, &name)
+    if GetKeyState("Esc", "P"){
+        stat.Value := "[ESC]中断:" name
+        Sleep(-1)
+        return false
+    }
+    assf := RegExReplace(fname, "\.[^\.]+$", ".ass")
+    if FileExist(assf){
+        stat.Value := "assが存在する:" name
+        Sleep(-1)
+        return false
+    }
+    LoadMp4(fname)
+    SplitPath(oFile.Value, , , , &name_no_ext)
+    name_no_ext := RegExReplace(name_no_ext, "[-\[\]]", " ") ; 文字列除外になるようなので
+    url := FENRIR_U rep(name_no_ext)
+    http := ComObject("WinHttp.WinHttpRequest.5.1")
+    http.Open("GET", url, false)
+    http.Send()
+    texts := http.ResponseText
+    if RegExMatch(texts, "https://www\.uta-net\.com/song/(\d+)/", &m){
+        utaID.Value  := m[1]
+    } else {
+        stat.Value := "utaIDが見つからない:" name
+        Sleep(-1)
+        return false
+    }
+    btn01clk()
+    WriteAssf(oFile.Value)
+    stat.Value := "正常にassを作成:" name
+    Sleep(-1)
+    return true
+}
+
+btn01clk(*){            ;歌詞取得
+    stat.Value := ""
     if utaID.Value = "" {
-        MsgBox("utaIDが未入力です")
+        r := MsgBox("utaIDが未入力です。assファイルを削除しますか？","確認","YesNo 32")
+        if (r = "Yes" and FileExist(oFile.Value)){
+            assf := oFile.Value
+            FileDelete(oFile.Value)
+            ClearsInfo()
+            oFile.Value := assf
+        }
         return false
     }
     url := "https://www.uta-net.com/song/" utaID.Value "/"
@@ -309,7 +464,7 @@ btn01clk(*){
     http.Send()
     texts := http.ResponseText
     if InStr(texts, "404 Not Found"){
-        MsgBox( url "が見つかりません")
+        stat.Value := url "が見つかりません" , MsgBox(stat.Value)
         return false
     }
     utaID0 := utaID.Value , ClearsInfo() , utaID.Value := utaID0
@@ -329,9 +484,11 @@ btn01clk(*){
         year.Value := StrSplit(m[1], "/")[1]
     if RegExMatch(texts, '(?s)<div[^>]*id="kashi_area"[^>]*>(.*?)</div>', &m)
         kashi.Value := Trim(StrReplace(m[1], "<br />", "`n"))
+    if RegExMatch(oFile.Value, "\[([^\[\]]+)\]\.ass$", &m)
+        vidid.Value := m[1]
+    stat.Value := "取得しました : " title.Value
 }
-;ass作成
-btnErrCk(){
+btnErrCk(){             ;エラーチェック
     if title.Value = "" {
         MsgBox("titleなし")
         return false
@@ -350,9 +507,101 @@ btnErrCk(){
     return true
 }
 btn02clk(*){
+    stat.Value := ""
     if ! btnErrCk()
         return
-    WriteAssf(oFile.Value)
+    if HasLineTag()
+        WriteSyncAssf(oFile.Value)
+    else
+        WriteAssf(oFile.Value)
+    mp4f := RegExReplace(oFile.Value, "\.ass$", ".mp4")
+    mp3f := RegExReplace(oFile.Value, "\.ass$", ".mp3")
+    if FileExist(mp4f) {
+        Run(mpcPath ' /play /sub "' oFile.Value '" "' mp4f '"')
+        stat.Value := "再生 : " GetF(mp4f)
+    } else if FileExist(mp3f) {
+        Run(mpcPath ' /play /sub "' oFile.Value '" /dub "' mp3f '" "' bgv '"')
+        stat.Value := "再生 : " GetF(mp3f)
+    } else {
+        stat.Value := "ファイルが存在しません" , MsgBox(stat.Value)
+    }
+}
+btn03clk(*){
+    stat.Value := ""
+    SplitPath(oFile.Value, , , , &name_no_ext)
+    name_no_ext := RegExReplace(name_no_ext, "[-\[\]]", " ") ; 文字列除外になるようなので
+    Run(FENRIR_U rep(name_no_ext))
+}
+btn04clk(*){
+    LoadMp4(GetNeighborFile(oFile.Value,-1))
+}
+btn05clk(*){
+    LoadMp4(GetNeighborFile(oFile.Value,1))
+}
+btn06clk(*){
+    stat.Value := ""
+    SplitPath(oFile.Value, , &dir)
+    if (dir = ""){
+        MsgBox("出力ファイルを指定してください")
+        return
+    }
+    msg := "フォルダ " dir " 配下のmp3/mp4ファイルに一括でassを付与します。`nよろしいですか？"
+    r := MsgBox(msg,"一括","YesNo 32")
+    if (r = "No"){
+        return
+    }
+    Loop Files dir "\*.mp3","R" {
+        CreateAssf(A_LoopFileFullPath)
+    }
+    Loop Files dir "\*.mp4","R" {
+        CreateAssf(A_LoopFileFullPath)
+        filecnt++
+    }
+    stat.Value := "一括処理が終了しました" , MsgBox(stat.Value)
+}
+btn07clk(*){
+    stat.Value := ""
+    if (title.Value = "" or artst.Value = ""){
+        stat.Value := "titleとartistを入力してください" , MsgBox(stat.Value)
+        return False
+    }
+    btn07.Enabled := false
+    stat.Value := "LRCLIB の情報取得中..."
+    http := ComObject("WinHttp.WinHttpRequest.5.1")
+    reqstr := title.Value " " artst.Value
+    reqstr := RegExReplace(reqstr, "\([^)]*\)", " ")    ; (～) をスペースに置換
+    reqstr := RegExReplace(reqstr, "[!$%&]", " ")       ; ! $ % & をスペースに置換
+    reqstr := RegExReplace(reqstr, "\s+", " ")          ; スペースを1つにまとめる
+    reqstr := Trim(reqstr)
+    reqstr := UriEncode(reqstr)
+    url := "https://lrclib.net/api/search?q=" reqstr
+    try {
+        http.Open("GET", url, false)
+        http.Send()
+    } catch Error as e {
+        stat.Value := "通信エラー：" e.Message , MsgBox(stat.Value)
+        btn07.Enabled := true
+        return False
+    }
+    texts := ResponseBodyToText(http.ResponseBody)
+    if RegExMatch(texts, '"syncedLyrics"\s*:\s*"((?:\\.|[^"])*)"', &m) {
+        txt := m[1]
+        txt := StrReplace(txt, "\n", "`n")
+        txt := StrReplace(txt, "\r", "")
+        txt := StrReplace(txt, "\\", "\")
+        txt := StrReplace(txt, '\"', '"')
+        kashi.Value := txt
+    }
+    btn07.Enabled := true
+    stat.Value := "LRCLIB の情報取得:" http.Status " " http.StatusText
+}
+btn08clk(*){
+    stat.Value := ""
+    Run("https://lrclib.net/search/" rep(title.Value " " artst.Value))
+}
+btn09clk(*){
+    stat.Value := ""
+    WriteSyncAssf(oFile.Value)
     mp4f := RegExReplace(oFile.Value, "\.ass$", ".mp4")
     mp3f := RegExReplace(oFile.Value, "\.ass$", ".mp3")
     if FileExist(mp4f) {
@@ -363,31 +612,8 @@ btn02clk(*){
         MsgBox("ファイルが存在しない")
     }
 }
-    ;ass位置修正
-AjastAssf(ys,ye){
-    if ! btnErrCk()
-        return
-    if (ystart.Value = "")
-        ystart.Value := 480
-    if (yend.Value = "")
-        yend.Value := 200
-    ystart.Value := ystart.Value + ys
-    yend.Value   := yend.Value   + ye
-    WriteAssf(oFile.Value)
-}
-btn03clk(*){
-    SplitPath(oFile.Value, , , , &name_no_ext)
-    FENRIR := "https://search.fenrir-inc.com/?hl=ja&channel=sleipnir_s&safe=off&lr=all&fr=ss&q="
-    requrl := FENRIR "歌ネット 歌詞ページ " rep(name_no_ext)
-    Run(requrl)
-}
-btn04clk(*){
-    LoadMp4(GetNeighborFile(oFile.Value,-1))
-}
-btn05clk(*){
-    LoadMp4(GetNeighborFile(oFile.Value,1))
-}
 btn10clk(*){
+    stat.Value := ""
     if ! btnErrCk()
         return
     ystart.Value := ""
@@ -406,22 +632,50 @@ btn13clk(*){
 btn14clk(*){
     AjastAssf(0,120)
 }
+btn21clk(*){
+    stat.Value := ""
+    if loopvid.Value = "" {
+        MsgBox("loopvidの指定がありません")
+        return False
+    }
+; ダウンロードから始める
+    msg := "動画 " loopvid.Value " をダウンロードします"
+    r := MsgBox(msg,"loop編集","YesNo 32")
+    if (r = "No"){
+        return False
+    }
+    RunWait(A_ComSpec ' /C bin\yt-dlp.exe -U', , "Hide")
+    stat.Value := "loop編集 完了"
+}
+btn22clk(*){
+    stat.Value := ""
+    Run(FENRIR_Y rep(title.Value " " artst.Value))    
+}
 ; メイン
 mpcPath := GetMPCPath()
 myGui := Gui()
-myGui.Title := "もちからuta-netスクロール歌詞付与 v0.4"
-myGui.AddText("x5 y7" , "uta-net ID："),    utaID := myGui.AddEdit("x80 y5 w50")
-btn01 := myGui.AddButton("x140 y3 w60", "歌詞取得")
-myGui.AddText("x220 y7" , "uta-net URL：")
-myGui.AddLink("x300 y7", '<a href="https://www.uta-net.com/">https://www.uta-net.com/</a>')
-btn03 := myGui.AddButton("x480 y3 w100", "ファイル名から検索")
-myGui.AddText("x5 y32", "曲の長さ："),      durat := myGui.AddEdit("x80 y30 w50")
-btn04 := myGui.AddButton("x480 y30 w50", "▲前")
-btn05 := myGui.AddButton("x530 y30 w50", "次▼")
-myGui.AddText("x140 y32" , "mp3/mp4ファイルをドロップすると曲の長さ、出力ファイルを取得します")
-myGui.AddText("x5 y57", "出力ファイル："),  oFile := myGui.AddEdit("x80 y55 w500")
+myGui.Title := "もちからuta-netスクロール歌詞付与 v0.5"
+myGui.AddText("x10 y7", "出力ファイル："),   oFile := myGui.AddEdit("x75 y5 w525")
+
+myGui.AddText("x10 y32", "曲の長さ："),      durat := myGui.AddEdit("x75 y30 w50")
+myGui.AddText("x135 y32" , "mp3/mp4のドロップ曲で曲の長さ、出力ファイルを取得")
+btn04 := myGui.AddButton("x440 y28 w50", "▲前")
+btn05 := myGui.AddButton("x495 y28 w50", "次▼")
+btn06 := myGui.AddButton("x550 y28 w50", "一括")
+
+myGui.AddLink("x10 y57" , '<a href="https://www.uta-net.com/">uta-net ID</a>：')
+utaID := myGui.AddEdit("x75 y55 w50")
+btn01 := myGui.AddButton("x130 y53 w60", "歌詞取得")
+btn03 := myGui.AddButton("x195 y53 w100", "ファイル名から検索")
+
+myGui.AddText("x300 y57", "|")
+myGui.AddLink("x310 y57" , '<a href="https://lrclib.net/">LRCLIB</a>：')
+btn07 := myGui.AddButton("x365 y53 w60", "LRC取得")
+btn08 := myGui.AddButton("x430 y53 w80", "曲名から検索")
+
+
 ;SongInfo表示
-myGui.AddText("x10  y90", "[曲情報]")
+myGui.AddText("x10  y90",  "[曲情報]")
 myGui.AddText("x10  y112", "title："),      title := myGui.AddEdit("x60  y110 w200")
 myGui.AddText("x10  y137", "artist："),     artst := myGui.AddEdit("x60  y135 w200")
 myGui.AddText("x10  y162", "tieup："),      tieup := myGui.AddEdit("x60  y160 w200")
@@ -432,35 +686,45 @@ myGui.AddText("x10 y217", "作詞："),        lyric := myGui.AddEdit("x60  y215
 myGui.AddText("x10 y242", "作曲："),        cmpst := myGui.AddEdit("x60  y240 w200")
 myGui.AddText("x10 y267", "編曲："),        arngm := myGui.AddEdit("x60  y265 w200")
 
-myGui.AddText("x10 y297", "videoID："),     vidid := myGui.AddEdit("x70  y295 w60")
-myGui.AddText("x170 y297", "歌詞style："),  
-kstyle:= myGui.AddDropDownList("x230 y295 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
-myGui.AddText("x10 y322", "動画type："),    mtype := myGui.AddEdit("x70  y320 w100")
-myGui.AddText("x10 y347", "動画名："),      vname := myGui.AddEdit("x70  y345 w190")
-myGui.AddText("x10  y372", "開始座標："),   ystart:= myGui.AddEdit("x70  y370 w60")
-myGui.AddText("x140 y372", "終了座標："),   yend  := myGui.AddEdit("x200 y370 w60")
+myGui.AddText("x10  y297", "videoID："),    vidid   := myGui.AddEdit("x60  y295 w75")
+myGui.AddText("x145 y297", "loopvid："),    loopvid := myGui.AddEdit("x185 y295 w75")
+myGui.AddText("x10  y322", "動画type："),   mtype   := myGui.AddEdit("x60  y320 w75")
+btn21 := myGui.AddButton("x140 y318 w60", "loop編集")
+btn22 := myGui.AddButton("x200 y318 w60", "動画検索")
+myGui.AddText("x10  y347", "動画名："),     vname   := myGui.AddEdit("x60  y345 w200")
+myGui.AddText("x10  y372", "開始座標："),   ystart  := myGui.AddEdit("x60  y370 w60")
+myGui.AddText("x140 y372", "終了座標："),   yend    := myGui.AddEdit("x200 y370 w60")
 
-myGui.AddText("x280 y92", "[歌詞]")
-kashi := myGui.AddEdit("x280 y110 w320 h330 +Multi +VScroll +HScroll")
-
-btn02 := myGui.AddButton("x15  y405 w50", "ass作成 ＆再生")
-myGui.AddText("x85 y400", "[スクロール歌詞 位置修正]")
+myGui.AddText("x10 y400", "[歌詞作成 位置修正]")
+btn02 := myGui.AddButton("x10  y420 w70", "ass作成再生")
 btn10 := myGui.AddButton("x220 y395 w40", "reset")
 btn11 := myGui.AddButton("x85  y420 w40", "始㊤")
 btn12 := myGui.AddButton("x130 y420 w40", "始㊦")
 btn13 := myGui.AddButton("x175 y420 w40", "終㊤")
 btn14 := myGui.AddButton("x220 y420 w40", "終㊦")
 
+myGui.AddText("x280 y92", "[歌詞]")
+myGui.AddText("x500 y92", "歌詞style："),  
+kstyle:= myGui.AddDropDownList("x560 y88 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
+kashi := myGui.AddEdit("x280 y110 w320 h300 +Multi +VScroll +HScroll")
+stat  := myGui.AddText("x280 y427 w320 h40 +Wrap", "[ステータス]")
+
 btn01.OnEvent("Click", btn01clk)
 btn02.OnEvent("Click", btn02clk)
 btn03.OnEvent("Click", btn03clk)
 btn04.OnEvent("Click", btn04clk)
 btn05.OnEvent("Click", btn05clk)
+btn06.OnEvent("Click", btn06clk)
+btn07.OnEvent("Click", btn07clk)
+btn08.OnEvent("Click", btn08clk)
+
 btn10.OnEvent("Click", btn10clk)
 btn11.OnEvent("Click", btn11clk)
 btn12.OnEvent("Click", btn12clk)
 btn13.OnEvent("Click", btn13clk)
 btn14.OnEvent("Click", btn14clk)
+btn21.OnEvent("Click", btn21clk)
+btn22.OnEvent("Click", btn22clk)
 myGui.OnEvent("DropFiles", HandleDrop)
 
 myGui.Show("w620 h460")
