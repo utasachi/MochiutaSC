@@ -342,25 +342,34 @@ WriteSyncAssf(assf){                ;ass同期書き込み
     SaveLines(assf, ass.lines)
 }
 
-LoadMp4(mp4f) {                     ;mp3/mp4読込
-    stat.Value := ""
-    if !RegExMatch(mp4f, "i)\.(mp3|mp4)$") || !FileExist(mp4f) {
-        stat.Value := "mp3/mp4ファイルがありません" , MsgBox(stat.Value)
-        return
-    }
-    assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
+getdur(mp4f){
     cmd := 'bin\ffprobe.exe -v error -show_entries format=duration -of default=nw=1:nk=1 "' mp4f '"'
     o := RegExReplace(StdoutToVar(cmd), "[^\d\.]") + 0
     if (o != "")
         durat.Value := Round(o, 0)
     else
         MsgBox("曲の長さ取得に失敗")
+}
+
+LoadMp4(mp4f){                     ;mp3/mp4読込
+    stat.Value := ""
+    if !RegExMatch(mp4f, "i)\.(mp3|mp4)$") || !FileExist(mp4f) {
+        stat.Value := "mp3/mp4ファイルがありません" , MsgBox(stat.Value)
+        return
+    }
+    assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
+    getdur(mp4f)
     ClearsInfo()
     oFile.Value := assf
     ReadAssf(assf)
     stat.Value := "ロード : " GetF(mp4f)
 }
 HandleDrop(guiObj, guiCtrlObj, files, x, y) {       ;ファイルドロップのハンドル
+    if (guiCtrlObj = vname) {
+        vname.Value := files[1]
+        mtype.Value := "youtube"
+        return
+    }
     LoadMp4(files[1])
 }
 
@@ -502,8 +511,13 @@ btnErrCk(){             ;エラーチェック
         MsgBox("出力ファイル なし")
         return false
     }
-    if mtype.Value = ""
+    if mtype.Value = "" {
         mtype.Value := "mv"
+    }
+    if InStr(vname.Value, "\") && InStr(vname.Value, ".") {
+        SplitPath(vname.Value, , , , &nameNoExt)
+        vname.Value := nameNoExt
+    }
     return true
 }
 btn02clk(*){
@@ -632,20 +646,91 @@ btn13clk(*){
 btn14clk(*){
     AjastAssf(0,120)
 }
+
+ytdlp(loopf,loopvid){
+    cmd := 'bin\yt-dlp.exe'
+        . ' -f "bv[height<=1080]+ba"'
+        . ' --merge-output-format mp4'
+        . ' -N 1'
+        . ' -o "' loopf '"'
+        . ' -- "' loopvid '"'
+    log := A_Temp "\yt-dlp.log"
+    cmd2 := A_ComSpec ' /c "' cmd ' > "' log '" 2>&1"'
+    exitCode := RunWait(cmd2, , "Hide")
+    if (exitCode != 0) {
+        MsgBox "ytdlpがエラーで終了しました。終了コード: " exitCode
+        Run('notepad.exe "' log '"')
+        return false
+    } else if !FileExist(loopf) {
+        MsgBox "ファイルが作成されませんでした`n" loopf
+        return false
+    }
+    return true
+}
+
+loopedit(vidf,audf,fname){
+    cmd := 'bin\ffmpeg.exe -y -stream_loop 5'
+        . ' -i "' vidf '"'
+        . ' -i "' audf '"'
+        . ' -shortest -map 0:v:0 -map 1:a'
+        . ' -c:v copy -c:a copy'
+        . ' "' fname '"'
+    exitCode := RunWait(cmd, , "Hide")
+    if (exitCode != 0) {
+        MsgBox "ffmpegがエラーで終了しました。終了コード: " exitCode
+        return false
+    } else if !FileExist(fname) {
+        MsgBox "ファイルが作成されませんでした`n" fname
+        return false
+    }
+    return true
+}
+
 btn21clk(*){
-    stat.Value := ""
-    if loopvid.Value = "" {
-        MsgBox("loopvidの指定がありません")
-        return False
+    mp4f := RegExReplace(oFile.Value, "\.[^.]+$", ".mp4")
+    if (vidid.Value && !loopvid.Value){
+        stat.Value := "動画差し替え..." vname.Value
+        loopf := RegExReplace(oFile.Value, "\.[^.]+$", "_loopvid.mp4")
+        if (MsgBox("動画を差し替えます`n" vidid.Value, "確認", "OKCancel") != "OK")
+            return
+        if !ytdlp(loopf,vidid.Value)
+            return
+        try FileDelete(mp4f)
+        FileMove(loopf,mp4f)
+        getdur(mp4f)
+    } else if (!vname.Value && loopvid.Value) {
+        stat.Value := "loop動画ダウンロード..." vname.Value
+        loopf := RegExReplace(oFile.Value, "\.[^.]+$", "_loopvid.mp4")
+        fname := RegExReplace(mp4f, "\.mp4$", "_loopedit.mp4")
+        if (MsgBox("loop動画をダウンロードします`n" loopvid.Value, "確認", "OKCancel") != "OK")
+            return
+        if !ytdlp(loopf,loopvid.Value)
+            return
+        if !loopedit(loopf,mp4f,fname)
+            return
+        try FileDelete(mp4f)
+        try FileDelete(loopf)
+        FileMove(fname,mp4f)
+    } else if (vname.Value && FileExist(vname.Value)) {
+        stat.Value := "DL済みファイルから作成..." vname.Value
+        if !FileExist(mp4f) {
+            MsgBox "動画が存在しません`n" mp4f
+            return
+        }
+        vidf := vname.Value
+        fname := RegExReplace(mp4f, "\.mp4$", "_loopedit.mp4")
+        if (MsgBox("loop編集します`n" mp4f, "確認", "OKCancel") != "OK")
+            return
+        if !loopedit(vidf,mp4f,fname)
+            return
+        try FileDelete(mp4f)
+        FileMove(fname,mp4f)
+    } else {
+        MsgBox "動画の指定がありません"
+        return
     }
-; ダウンロードから始める
-    msg := "動画 " loopvid.Value " をダウンロードします"
-    r := MsgBox(msg,"loop編集","YesNo 32")
-    if (r = "No"){
-        return False
-    }
-    RunWait(A_ComSpec ' /C bin\yt-dlp.exe -U', , "Hide")
     stat.Value := "loop編集 完了"
+    btn02clk()
 }
 btn22clk(*){
     stat.Value := ""
@@ -692,16 +777,16 @@ myGui.AddText("x10  y322", "動画type："),   mtype   := myGui.AddEdit("x60  y3
 btn21 := myGui.AddButton("x140 y318 w60", "loop編集")
 btn22 := myGui.AddButton("x200 y318 w60", "動画検索")
 myGui.AddText("x10  y347", "動画名："),     vname   := myGui.AddEdit("x60  y345 w200")
-myGui.AddText("x10  y372", "開始座標："),   ystart  := myGui.AddEdit("x60  y370 w60")
-myGui.AddText("x140 y372", "終了座標："),   yend    := myGui.AddEdit("x200 y370 w60")
 
-myGui.AddText("x10 y400", "[歌詞作成 位置修正]")
-btn02 := myGui.AddButton("x10  y420 w70", "ass作成再生")
+myGui.AddText("x10 y380", "[歌詞位置修正]")
+btn02 := myGui.AddButton("x10  y400 w45", "ass作成＆再生")
+btn11 := myGui.AddButton("x60  y395 w35", "始㊤")
+btn12 := myGui.AddButton("x100 y395 w35", "始㊦")
+btn13 := myGui.AddButton("x140 y395 w35", "終㊤")
+btn14 := myGui.AddButton("x180 y395 w35", "終㊦")
 btn10 := myGui.AddButton("x220 y395 w40", "reset")
-btn11 := myGui.AddButton("x85  y420 w40", "始㊤")
-btn12 := myGui.AddButton("x130 y420 w40", "始㊦")
-btn13 := myGui.AddButton("x175 y420 w40", "終㊤")
-btn14 := myGui.AddButton("x220 y420 w40", "終㊦")
+myGui.AddText("x65  y429", "開始座標："),   ystart  := myGui.AddEdit("x120 y425 w40")
+myGui.AddText("x165 y429", "終了座標："),   yend    := myGui.AddEdit("x220 y425 w40")
 
 myGui.AddText("x280 y92", "[歌詞]")
 myGui.AddText("x500 y92", "歌詞style："),  
@@ -733,4 +818,4 @@ if (A_Args.Length >= 1){
     if (A_Args.Length >= 2 && A_Args[2] != "")
         asshead := A_Args[2]
     LoadMp4(A_Args[1])
-}
+}                                                                                                                                                                                                                                                                                                                                                                                                                      
