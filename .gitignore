@@ -2,3 +2,4 @@ bin/
 *.exe
 *.ini
 image/*.mp4
+image/*.jpg

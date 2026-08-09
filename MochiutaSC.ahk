@@ -9,6 +9,8 @@ SetWorkingDir(A_ScriptDir)
 asshead  := "MochiutaSC_header.ass"
 assshead := "MochiutaSC_syncheader.ass"
 bgv := "image\bgv8min_s.mp4"
+ytthumb := "image\ytthumb.jpg"
+noimg := "image\noimgw.png"
 
 FENRIR := "https://search.fenrir-inc.com/?hl=ja&channel=sleipnir_s&safe=off&lr=all&fr=ss&q="
 FENRIR_U := FENRIR "歌ネット 歌詞ページ "
@@ -143,6 +145,20 @@ GetMPCPath() {          ;MPC-BEのパスを取得
     IniWrite(selected, ini, "path", key)
     return selected
 }
+GetBaseDir() {          ;basedirを取得
+    ini := "MochikaraSC.ini"
+    key := "basedir"
+    path := IniRead(ini, "path", key, "")
+    if (path != "" && DirExist(path))
+        return path
+    MsgBox("basedirが設定されていません。")
+    selected := DirSelect(,,"basedir を選択してください")
+    if (selected = "")
+        return ""   ; キャンセル
+    IniWrite(selected, ini, "path", key)
+    return selected
+}
+
 ReadAssf(assf) {        ;ass読込 スクロール歌詞/行同期歌詞 両対応
     if !FileExist(assf)
         return False
@@ -362,8 +378,10 @@ LoadMp4(mp4f){                     ;mp3/mp4読込
     ClearsInfo()
     oFile.Value := assf
     ReadAssf(assf)
+    ytimg()
     stat.Value := "ロード : " GetF(mp4f)
 }
+
 HandleDrop(guiObj, guiCtrlObj, files, x, y) {       ;ファイルドロップのハンドル
     if (guiCtrlObj = vname) {
         vname.Value := files[1]
@@ -373,34 +391,32 @@ HandleDrop(guiObj, guiCtrlObj, files, x, y) {       ;ファイルドロップの
     LoadMp4(files[1])
 }
 
-GetNeighborFile(currentFile, offset := 1, doLoop := false) {    ; 同一フォルダの次ファイル/前ファイル検索
-    SplitPath(currentFile, &name, &dir, &ext, &nameNoExt)
-    ; 基準となるメディアファイルを決定
-    if FileExist(dir "\" nameNoExt ".mp4")
-        targetFile := dir "\" nameNoExt ".mp4"
-    else if FileExist(dir "\" nameNoExt ".mp3")
-        targetFile := dir "\" nameNoExt ".mp3"
-    else
+GetNeighborFile(currentFile, offset := 1) {
+    SplitPath(currentFile, , &dir, , &nameNoExt)
+    if !DirExist(dir)
         return ""
-    SplitPath(targetFile, , , &mediaExt)
+    current := ""
+    mp4 := dir "\" nameNoExt ".mp4"
+    mp3 := dir "\" nameNoExt ".mp3"
+    if FileExist(mp4)
+        current := mp4
+    else if FileExist(mp3)
+        current := mp3
     files := []
-    Loop Files dir "\*." mediaExt
-        files.Push(A_LoopFileFullPath)
+    Loop Files dir "\*"
+        if (A_LoopFileExt = "mp4" || A_LoopFileExt = "mp3")
+            files.Push(A_LoopFileFullPath)
+    if !files.Length
+        return ""
+    if !current
+        return offset > 0 ? files[1] : files[files.Length]
     for i, file in files {
-        if (file = targetFile) {
+        if (file = current) {
             target := i + offset
-            if (doLoop) {
-                if (target < 1)
-                    target := files.Length
-                if (target > files.Length)
-                    target := 1
-            }
-            return (target >= 1 && target <= files.Length)
-                ? files[target]
-                : ""
+            return (target >= 1 && target <= files.Length) ? files[target] : ""
         }
     }
-    return ""
+    return offset > 0 ? files[1] : files[files.Length]
 }
 
 AjastAssf(ys,ye){       ;スクロール歌詞 ass位置修正
@@ -524,6 +540,7 @@ btn02clk(*){
     stat.Value := ""
     if ! btnErrCk()
         return
+    ytimg()
     if HasLineTag()
         WriteSyncAssf(oFile.Value)
     else
@@ -646,7 +663,70 @@ btn13clk(*){
 btn14clk(*){
     AjastAssf(0,120)
 }
+btn15clk(*){        ; 削除
+    if (oFile.Value) {
+        msg := oFile.Value "`nを削除します。よろしいですか？"
+        if (MsgBox(msg, "削除", "OKCancel 32") = "Cancel")
+            return
+        nextFile := GetNeighborFile(oFile.Value, 1)
+        try FileDelete(oFile.Value)
+        try FileDelete(RegExReplace(oFile.Value, "\.[^.]+$", ".mp4"))
+        try FileDelete(RegExReplace(oFile.Value, "\.[^.]+$", ".mp3"))
+        Sleep(1)
+        LoadMp4(nextFile)
+    }
+}
 
+btn16clk(*){        ; 配置
+    subdir0 := subdir.Value
+    if subdir0 = "" {
+        try {
+            y := Integer(year.Value)
+            if (y <= 1989)
+                subdir0 := "1989以前"
+            else if (y <= 1999)
+                subdir0 := "1990-1999"
+            else if (y <= 2009)
+                subdir0 := "2000-2009"
+            else if (y <= 2019)
+                subdir0 := "2010-2019"
+            else
+                subdir0 := year.Value
+        } catch {
+            subdir0 := year.Value
+        }
+    }
+    mtype0 := mtype.Value
+    if mtype0 != "" {
+        mtype0 := " " mtype.Value
+    }
+    if tieup.Value != "" {
+        fname := "[" tieup.Value "]" title.Value "／" artst.Value "" mtype0
+    } else {
+        fname := title.Value "／" artst.Value "" mtype0
+    }
+    fassf :=  oFile.Value
+    fmp4f :=  RegExReplace(oFile.Value, "\.[^.]+$", ".mp4")
+    fmp3f :=  RegExReplace(oFile.Value, "\.[^.]+$", ".mp3")
+    tassf := baseDir "\" subdir0 "\" fname ".ass"
+    tmp4f := baseDir "\" subdir0 "\" fname ".mp4"
+    tmp3f := baseDir "\" subdir0 "\" fname ".mp3"
+    msg := tassf "`nに配置します。よろしいですか？"
+    if FileExist(tassf)
+        msg := msg "`n(移動先にassファイルが存在します)"
+    if FileExist(tmp4f)
+        msg := msg "`n(移動先にmp4ファイルが存在します)"
+    if FileExist(tmp3f)
+        msg := msg "`n(移動先にmp3ファイルが存在します)"
+    if (MsgBox(msg, "配置", "OKCancel 32") = "Cancel")
+        return
+    nextFile := GetNeighborFile(oFile.Value, 1)
+    try FileMove(fassf, tassf, 1)
+    try FileMove(fmp4f, tmp4f, 1)
+    try FileMove(fmp3f, tmp3f, 1)
+    Sleep(1)
+    LoadMp4(nextFile)
+}
 ytdlp(loopf,loopvid){
     cmd := 'bin\yt-dlp.exe'
         . ' -f "bv[height<=1080]+ba"'
@@ -684,6 +764,36 @@ loopedit(vidf,audf,fname){
         return false
     }
     return true
+}
+
+ytimg() {
+    if loopvid.Value != "" {
+        videoid := loopvid.Value
+    } else if vidid.Value != "" {
+        videoid := vidid.Value
+    } else {
+        thumb.Value := noimg
+        return false
+    }
+    url := "https://i.ytimg.com/vi/" videoid "/hqdefault.jpg"
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("GET", url, false)
+        http.Send()
+        if (http.Status != 200)
+            return false
+        stream := ComObject("ADODB.Stream")
+        stream.Type := 1
+        stream.Open()
+        stream.Write(http.ResponseBody)
+        stream.SaveToFile(ytthumb, 2)
+        stream.Close()
+        thumb.Value := ytthumb
+        return true
+    } catch {
+        thumb.Value := noimg
+        return false
+    }
 }
 
 btn21clk(*){
@@ -737,48 +847,62 @@ btn22clk(*){
     Run(FENRIR_Y rep(title.Value " " artst.Value))    
 }
 ; メイン
+; ボタン=基準 Edit=+2 Text=+4 次行=+25
 mpcPath := GetMPCPath()
+baseDir := GetBaseDir()
 myGui := Gui()
 myGui.Title := "もちからuta-netスクロール歌詞付与 v0.5"
-myGui.AddText("x10 y7", "出力ファイル："),   oFile := myGui.AddEdit("x75 y5 w525")
-
-myGui.AddText("x10 y32", "曲の長さ："),      durat := myGui.AddEdit("x75 y30 w50")
-myGui.AddText("x135 y32" , "mp3/mp4のドロップ曲で曲の長さ、出力ファイルを取得")
-btn04 := myGui.AddButton("x440 y28 w50", "▲前")
-btn05 := myGui.AddButton("x495 y28 w50", "次▼")
-btn06 := myGui.AddButton("x550 y28 w50", "一括")
-
-myGui.AddLink("x10 y57" , '<a href="https://www.uta-net.com/">uta-net ID</a>：')
-utaID := myGui.AddEdit("x75 y55 w50")
-btn01 := myGui.AddButton("x130 y53 w60", "歌詞取得")
-btn03 := myGui.AddButton("x195 y53 w100", "ファイル名から検索")
-
-myGui.AddText("x300 y57", "|")
-myGui.AddLink("x310 y57" , '<a href="https://lrclib.net/">LRCLIB</a>：')
-btn07 := myGui.AddButton("x365 y53 w60", "LRC取得")
-btn08 := myGui.AddButton("x430 y53 w80", "曲名から検索")
-
-
-;SongInfo表示
-myGui.AddText("x10  y90",  "[曲情報]")
-myGui.AddText("x10  y112", "title："),      title := myGui.AddEdit("x60  y110 w200")
-myGui.AddText("x10  y137", "artist："),     artst := myGui.AddEdit("x60  y135 w200")
-myGui.AddText("x10  y162", "tieup："),      tieup := myGui.AddEdit("x60  y160 w200")
-myGui.AddText("x10  y187", "year："),       year  := myGui.AddEdit("x60  y185 w50")
-myGui.AddText("x120 y187", "subdir："),     subdir:= myGui.AddEdit("x160 y185 w100")
-
-myGui.AddText("x10 y217", "作詞："),        lyric := myGui.AddEdit("x60  y215 w200")
-myGui.AddText("x10 y242", "作曲："),        cmpst := myGui.AddEdit("x60  y240 w200")
-myGui.AddText("x10 y267", "編曲："),        arngm := myGui.AddEdit("x60  y265 w200")
-
-myGui.AddText("x10  y297", "videoID："),    vidid   := myGui.AddEdit("x60  y295 w75")
-myGui.AddText("x145 y297", "loopvid："),    loopvid := myGui.AddEdit("x185 y295 w75")
-myGui.AddText("x10  y322", "動画type："),   mtype   := myGui.AddEdit("x60  y320 w75")
-btn21 := myGui.AddButton("x140 y318 w60", "loop編集")
-btn22 := myGui.AddButton("x200 y318 w60", "動画検索")
-myGui.AddText("x10  y347", "動画名："),     vname   := myGui.AddEdit("x60  y345 w200")
-
-myGui.AddText("x10 y380", "[歌詞位置修正]")
+;y=0
+myGui.AddText("x10 y4", "出力ファイル："),   oFile := myGui.AddEdit("x75 y2 w535")
+;y=25
+myGui.AddText("x10 y29", "曲の長さ："),      durat := myGui.AddEdit("x75 y27 w50")
+myGui.AddText("x135 y29" , "mp3/mp4をドラッグ＆ドロップ")
+btn04 := myGui.AddButton("x300 y25 w45", "▲前")
+btn05 := myGui.AddButton("x350 y25 w45", "次▼")
+btn06 := myGui.AddButton("x400 y25 w45", "一括")
+btn06.Enabled := false
+;y=50
+myGui.AddLink("x10 y54" , '<a href="https://www.uta-net.com/">uta-net ID</a>：')
+utaID := myGui.AddEdit("x75 y52 w55")
+btn01 := myGui.AddButton("x135 y50 w60", "歌詞取得")
+btn03 := myGui.AddButton("x200 y50 w75", "ファイル名検索")
+btn15 := myGui.AddButton("x350 y50 w45", "削除")
+btn16 := myGui.AddButton("x400 y50 w45", "配置")
+;y=75
+myGui.AddLink("x15 y79" , '<a href="https://lrclib.net/">LRCLIB</a>：')
+btn07 := myGui.AddButton("x75 y75 w55", "LRC取得")
+btn08 := myGui.AddButton("x135 y75 w60", "曲名検索")
+;y=100 曲情報
+myGui.AddText("x10  y102",  "[曲情報]")
+;y=115
+myGui.AddText("x10  y119", "title："),      title := myGui.AddEdit("x60  y117 w210")
+;y=140
+myGui.AddText("x10  y144", "artist："),     artst := myGui.AddEdit("x60  y142 w210")
+;y=165
+myGui.AddText("x10  y169", "tieup："),      tieup := myGui.AddEdit("x60  y167 w210")
+;y=190
+myGui.AddText("x10  y194", "year："),       year  := myGui.AddEdit("x60  y192 w50")
+myGui.AddText("x120 y194", "subdir："),     subdir:= myGui.AddEdit("x160 y192 w110")
+;y=215
+myGui.AddText("x10 y219", "作詞："),        lyric := myGui.AddEdit("x60  y217 w210")
+;y=240
+myGui.AddText("x10 y244", "作曲："),        cmpst := myGui.AddEdit("x60  y242 w210")
+;y=265
+myGui.AddText("x10 y269", "編曲："),        arngm := myGui.AddEdit("x60  y267 w210")
+;y=290 動画情報
+myGui.AddText("x10 y292",  "[動画情報]")
+;y=305
+myGui.AddText("x10  y309", "videoID:"),    vidid  := myGui.AddEdit("x60  y307 w85")
+myGui.AddText("x147 y309", "loopvid:"),    loopvid:= myGui.AddEdit("x185 y307 w85")
+;y=330
+myGui.AddText("x10  y334", "動画type:"),   mtype  := myGui.AddEdit("x60  y332 w75")
+btn21 := myGui.AddButton("x140 y330 w60", "loop編集")
+btn22 := myGui.AddButton("x200 y330 w60", "動画検索")
+;y=355
+myGui.AddText("x10  y359", "動画名:"),     vname  := myGui.AddEdit("x60  y357 w210")
+;y=380 動画情報
+myGui.AddText("x10  y382", "[歌詞位置修正]")
+;y=395
 btn02 := myGui.AddButton("x10  y400 w45", "ass作成＆再生")
 btn11 := myGui.AddButton("x60  y395 w35", "始㊤")
 btn12 := myGui.AddButton("x100 y395 w35", "始㊦")
@@ -787,12 +911,15 @@ btn14 := myGui.AddButton("x180 y395 w35", "終㊦")
 btn10 := myGui.AddButton("x220 y395 w40", "reset")
 myGui.AddText("x65  y429", "開始座標："),   ystart  := myGui.AddEdit("x120 y425 w40")
 myGui.AddText("x165 y429", "終了座標："),   yend    := myGui.AddEdit("x220 y425 w40")
-
-myGui.AddText("x280 y92", "[歌詞]")
-myGui.AddText("x500 y92", "歌詞style："),  
-kstyle:= myGui.AddDropDownList("x560 y88 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
-kashi := myGui.AddEdit("x280 y110 w320 h300 +Multi +VScroll +HScroll")
-stat  := myGui.AddText("x280 y427 w320 h40 +Wrap", "[ステータス]")
+;y=50
+thumb := myGui.AddPicture("x450 y25 w160 h90", noimg)
+;y=100 歌詞
+myGui.AddText("x280 y102", "[歌詞]")
+myGui.AddText("x320 y102", "歌詞style："),  
+kstyle:= myGui.AddDropDownList("x380 y100 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
+;y=120
+kashi := myGui.AddEdit("x280 y120 w330 h300 +Multi +VScroll +HScroll")
+stat  := myGui.AddText("x280 y427 w330 h40 +Wrap", "[ステータス]")
 
 btn01.OnEvent("Click", btn01clk)
 btn02.OnEvent("Click", btn02clk)
@@ -808,6 +935,8 @@ btn11.OnEvent("Click", btn11clk)
 btn12.OnEvent("Click", btn12clk)
 btn13.OnEvent("Click", btn13clk)
 btn14.OnEvent("Click", btn14clk)
+btn15.OnEvent("Click", btn15clk)
+btn16.OnEvent("Click", btn16clk)
 btn21.OnEvent("Click", btn21clk)
 btn22.OnEvent("Click", btn22clk)
 myGui.OnEvent("DropFiles", HandleDrop)
