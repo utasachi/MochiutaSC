@@ -85,7 +85,8 @@ rep(s) {                    ;文字列置き換え（簡易）
         "^", "＾",  "``", "｀", "*", "＊", "?", "？",
         "%", "％",  "$", "＄", "[", "［", "]", "］",
         "@", "＠",  "　", " ",  " ", " ", "+", "＋",
-        "é", "e",   "&", "＆", "〜", "～"
+        "é", "e",   "&", "＆", "〜", "～","⼥", "女",
+        "⧸", "／"
     )
     for k, v in replacements
         s := StrReplace(s, k, v)
@@ -136,14 +137,19 @@ GetMPCPath() {          ;MPC-BEのパスを取得
     ini := "MochikaraSC.ini"
     key := "mpcpath"
     path := IniRead(ini, "path", key, "")
-    if (path != "" && FileExist(path))
-        return path
-    MsgBox("MPC-BEのパスが設定されていません。")
-    selected := FileSelect(1, , "mpc-be64.exe を選択してください", "mpc-be64.exe (*.exe)")
-    if (selected = "")
-        return ""   ; キャンセル
-    IniWrite(selected, ini, "path", key)
-    return selected
+    if !(path != "" && FileExist(path)) {
+        MsgBox("MPC-BEのパスが設定されていません。")
+        selected := FileSelect(1, , "mpc-be64.exe を選択してください", "mpc-be64.exe (*.exe)")
+        if (selected = "")
+            return ""
+        IniWrite(selected, ini, "path", key)
+        path := selected
+    }
+    SplitPath(path, , &dir)
+    mpcIni := dir "\mpc-be64.ini"
+    if FileExist(mpcIni)
+        IniWrite(1, mpcIni, "Settings", "AutoReloadExtSubtitles")
+    return path
 }
 GetBaseDir() {          ;basedirを取得
     ini := "MochikaraSC.ini"
@@ -470,6 +476,32 @@ CreateAssf(fname){      ;一括実行用assファイル作成
     Sleep(-1)
     return true
 }
+btnErrCk(){             ;エラーチェック
+    if title.Value = "" {
+        MsgBox("titleなし")
+        return false
+    } else if artst.Value = "" {
+        MsgBox("artistなし")
+        return false
+    } else if durat.Value = "" {
+        MsgBox("曲の長さ なし")
+        return false
+    } else if oFile.Value = "" {
+        MsgBox("出力ファイル なし")
+        return false
+    }
+    if mtype.Value = "" {
+        mtype.Value := "mv"
+    }
+    if InStr(vname.Value, "\") && InStr(vname.Value, ".") {
+        SplitPath(vname.Value, , , , &nameNoExt)
+        vname.Value := nameNoExt
+    }
+    return true
+}
+StopMPC() {
+    try ProcessClose("mpc-be64.exe")
+}
 
 btn01clk(*){            ;歌詞取得
     stat.Value := ""
@@ -512,29 +544,6 @@ btn01clk(*){            ;歌詞取得
     if RegExMatch(oFile.Value, "\[([^\[\]]+)\]\.ass$", &m)
         vidid.Value := m[1]
     stat.Value := "取得しました : " title.Value
-}
-btnErrCk(){             ;エラーチェック
-    if title.Value = "" {
-        MsgBox("titleなし")
-        return false
-    } else if artst.Value = "" {
-        MsgBox("artistなし")
-        return false
-    } else if durat.Value = "" {
-        MsgBox("曲の長さ なし")
-        return false
-    } else if oFile.Value = "" {
-        MsgBox("出力ファイル なし")
-        return false
-    }
-    if mtype.Value = "" {
-        mtype.Value := "mv"
-    }
-    if InStr(vname.Value, "\") && InStr(vname.Value, ".") {
-        SplitPath(vname.Value, , , , &nameNoExt)
-        vname.Value := nameNoExt
-    }
-    return true
 }
 btn02clk(*){
     stat.Value := ""
@@ -664,20 +673,26 @@ btn14clk(*){
     AjastAssf(0,120)
 }
 btn15clk(*){        ; 削除
-    if (oFile.Value) {
-        msg := oFile.Value "`nを削除します。よろしいですか？"
-        if (MsgBox(msg, "削除", "OKCancel 32") = "Cancel")
-            return
-        nextFile := GetNeighborFile(oFile.Value, 1)
-        try FileDelete(oFile.Value)
-        try FileDelete(RegExReplace(oFile.Value, "\.[^.]+$", ".mp4"))
-        try FileDelete(RegExReplace(oFile.Value, "\.[^.]+$", ".mp3"))
-        Sleep(1)
-        LoadMp4(nextFile)
+    if ! oFile.Value {
+        return
     }
+    StopMPC()
+    msg := oFile.Value "`nを削除します。よろしいですか？"
+    if (MsgBox(msg, "削除", "OKCancel 32") = "Cancel")
+        return
+    nextFile := GetNeighborFile(oFile.Value, 1)
+    try FileDelete(oFile.Value)
+    try FileDelete(RegExReplace(oFile.Value, "\.[^.]+$", ".mp4"))
+    try FileDelete(RegExReplace(oFile.Value, "\.[^.]+$", ".mp3"))
+    Sleep(1)
+    LoadMp4(nextFile)
 }
 
 btn16clk(*){        ; 配置
+    if ! oFile.Value {
+        return
+    }
+    StopMPC()
     subdir0 := subdir.Value
     if subdir0 = "" {
         try {
