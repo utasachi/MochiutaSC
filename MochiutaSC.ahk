@@ -11,6 +11,7 @@ assshead := "MochiutaSC_syncheader.ass"
 bgv := "image\bgv8min_s.mp4"
 ytthumb := "image\ytthumb.jpg"
 noimg := "image\noimgw.png"
+ytDlpUpdated := false
 
 FENRIR := "https://search.fenrir-inc.com/?hl=ja&channel=sleipnir_s&safe=off&lr=all&fr=ss&q="
 FENRIR_U := FENRIR "歌ネット 歌詞ページ "
@@ -131,7 +132,7 @@ ClearsInfo(){           ;曲情報消す
     lyric.Value := "" , cmpst.Value := "" , arngm.Value := "" , kashi.Value := ""
     utaID.Value := "" , vidid.Value := "" , mtype.Value := "" , vname.Value := ""
     ystart.Value := "", yend.Value := "" ,  kstyle.Value := "", subdir.Value := ""
-    loopvid.Value := ""
+    loopvid.Value := "",spotyid.Value := ""
 }
 GetMPCPath() {          ;MPC-BEのパスを取得
     ini := "MochikaraSC.ini"
@@ -173,7 +174,8 @@ ReadAssf(assf) {        ;ass読込 スクロール歌詞/行同期歌詞 両対�
         "utaid", utaID,         "title", title,     "artist", artst,    "tieup", tieup,
         "year", year,           "subdir", subdir,   "lyrics", lyric,    "composition", cmpst,
         "arrangement", arngm,   "vidid", vidid,     "mtype", mtype,     "vidname", vname,
-        "ystart", ystart,       "yend", yend,       "kstyle", kstyle,   "loopvid", loopvid
+        "ystart", ystart,       "yend", yend,       "kstyle", kstyle,   "loopvid", loopvid,
+        "spotyid", spotyid
     )
     text := FileRead(assf, "UTF-8")
     isLineSync := InStr(text, ",LineSync")
@@ -217,7 +219,7 @@ AppendSongInfo(lines){  ;ass書込共通関数　曲情報追加
         ["composition", cmpst],     ["arrangement", arngm],     ["utaid",       utaID],
         ["vidid",       vidid],     ["mtype",       mtype],     ["vidname",     vname],
         ["kstyle",      kstyle],    ["ystart",      ystart],    ["yend",        yend],
-        ["loopvid",     loopvid] ]
+        ["loopvid",     loopvid],   ["spotyid",     spotyid] ]
         for item in info {
             if (item[1] = "kstyle")
                 value := item[2].Text
@@ -289,6 +291,7 @@ AppendNormalLyrics(lines, f11) {    ;スクロール歌詞 歌詞付与
         t2 += 40
     }
 }
+
 AppendSyncLyrics(lines, f11, f12){  ;同期歌詞 歌詞付与
     kashiText := RegExReplace(kashi.Value, "(\r?\n)+$")     ;最後の空行のみ削除
     lyrics := []
@@ -300,6 +303,14 @@ AppendSyncLyrics(lines, f11, f12){  ;同期歌詞 歌詞付与
             })
         }
     }
+    i := 1
+    while (i < lyrics.Length) {     ;0.1秒以下の空行は削除してしまう
+        if (lyrics[i].text = "" && TimeDiffMs(lyrics[i].time, lyrics[i + 1].time) <= 100) {
+            lyrics.RemoveAt(i)
+        } else {
+            i++
+        }
+    }
     nextX := 480
     artmsg := ""
     Loop lyrics.Length {
@@ -309,7 +320,7 @@ AppendSyncLyrics(lines, f11, f12){  ;同期歌詞 歌詞付与
         ee := (i = lyrics.Length) ? SecToLrcTime(durat.Value) : lyrics[i + 1].time
         e2 := (i + 1 >= lyrics.Length) ? SecToLrcTime(durat.Value) : lyrics[i + 2].time
         if StrLen(lyrics[i].text) > 40{
-            artmsg := "1行の文字数が40文字を超えています"
+            artmsg .= i "行目の文字数が40文字を超えています`n"
         }
         if (lyrics[i].text = "" || (i < lyrics.Length && lyrics[i + 1].text = "")) {
             xx := 640
@@ -324,6 +335,9 @@ AppendSyncLyrics(lines, f11, f12){  ;同期歌詞 歌詞付与
         t1_0 := Max(TimeDiffMs(ss, mm), 0)
         t1_1 := Max(t1_0 - 500, 0)
         t2_0 := Max(TimeDiffMs(mm, ee), 0)
+        if (t2_0 <= 100 && i < lyrics.Length) {
+            artmsg .= i "行目 → " (i + 1) "行目の時間差が0.1秒以下です`n"
+        }
         t2_1 := Max(t2_0 - 500, 0)
         t3_0 := Min(Max(TimeDiffMs(mm, e2), 0), 30000)
         t3_1 := Max(t3_0 - 500, 0)
@@ -658,6 +672,7 @@ btn10clk(*){
         return
     ystart.Value := ""
     yend.Value   := ""
+    kashi.Value := RegExReplace(kashi.Value, "\[[^\]]*\]", "")
     WriteAssf(oFile.Value)
 }
 btn11clk(*){
@@ -743,6 +758,11 @@ btn16clk(*){        ; 配置
     LoadMp4(nextFile)
 }
 ytdlp(loopf,loopvid){
+    global ytDlpUpdated
+    if !ytDlpUpdated {
+        RunWait("bin\yt-dlp.exe -U", , "Hide")  ;最初にyt-dlpをupdate
+        ytDlpUpdated := true
+    }
     cmd := 'bin\yt-dlp.exe'
         . ' -f "bv[height<=1080]+ba"'
         . ' --merge-output-format mp4'
@@ -810,6 +830,53 @@ ytimg() {
         return false
     }
 }
+SetLibreLyricsSpDc() {
+    cookies := EnvGet("USERPROFILE") "\Downloads\open.spotify.com_cookies.txt"
+    if !FileExist(cookies) {
+        MsgBox("open.spotify.com_cookies.txt が見つかりません。")
+        return false
+    }
+    text := FileRead(cookies, "UTF-8")
+    if !RegExMatch(text, "(?m)^\.spotify\.com\tTRUE\t/\tTRUE\t\d+\tsp_dc\t([^\t\r\n]+)", &m) {
+        MsgBox("sp_dc が見つかりません。")
+        return false
+    }
+    spdc := m[1]
+    cmd := '"' librelyrics '" config set plugins.spotify.sp_dc "' spdc '"'
+    exitCode := RunWait(cmd, , "Hide")
+    if (exitCode != 0) {
+        MsgBox("LibreLyricsのsp_dc設定に失敗しました。`n終了コード: " exitCode)
+        return false
+    }
+    return true
+}
+btn17clk(*) {
+    if librelyrics = "" {
+        MsgBox "librelyricsの定義がありません"
+        return
+    } else if (spotyid.Value = "") {
+        MsgBox "Spotify IDがありません"
+        return
+    } else if !SetLibreLyricsSpDc() {
+        return
+    }
+    url := "https://open.spotify.com/track/" spotyid.Value
+    log := A_Temp "\librelyrics.log"
+    cmd := '"' librelyrics '" --force "' url '"'
+    cmd2 := A_ComSpec ' /c "' cmd ' > "' log '" 2>&1"'
+    exitCode := RunWait(cmd2, , "Hide")
+    if (exitCode != 0) {
+        MsgBox "LibreLyricsがエラーで終了しました。`n終了コード: " exitCode
+        Run('notepad.exe "' log '"')
+        return false
+    }
+    return true
+}
+
+btn18clk(*){
+    stat.Value := ""
+    Run("https://open.spotify.com/search/" rep(title.Value " " artst.Value))
+}
 
 btn21clk(*){
     mp4f := RegExReplace(oFile.Value, "\.[^.]+$", ".mp4")
@@ -865,6 +932,7 @@ btn22clk(*){
 ; ボタン=基準 Edit=+2 Text=+4 次行=+25
 mpcPath := GetMPCPath()
 baseDir := GetBaseDir()
+librelyrics := IniRead("MochikaraSC.ini", "path", "librelyrics", "")
 myGui := Gui()
 myGui.Title := "もちからuta-netスクロール歌詞付与 v0.5"
 ;y=0
@@ -872,21 +940,26 @@ myGui.AddText("x10 y4", "出力ファイル："),   oFile := myGui.AddEdit("x75 
 ;y=25
 myGui.AddText("x10 y29", "曲の長さ："),      durat := myGui.AddEdit("x75 y27 w50")
 myGui.AddText("x135 y29" , "mp3/mp4をドラッグ＆ドロップ")
-btn04 := myGui.AddButton("x300 y25 w45", "▲前")
-btn05 := myGui.AddButton("x350 y25 w45", "次▼")
-btn06 := myGui.AddButton("x400 y25 w45", "一括")
+btn04 := myGui.AddButton("x300 y25 w45", "▲前"),           btn04.OnEvent("Click", btn04clk)
+btn05 := myGui.AddButton("x350 y25 w45", "次▼"),           btn05.OnEvent("Click", btn05clk)
+btn06 := myGui.AddButton("x400 y25 w45", "一括"),           btn06.OnEvent("Click", btn06clk)
 btn06.Enabled := false
 ;y=50
 myGui.AddLink("x10 y54" , '<a href="https://www.uta-net.com/">uta-net ID</a>：')
 utaID := myGui.AddEdit("x75 y52 w55")
-btn01 := myGui.AddButton("x135 y50 w60", "歌詞取得")
-btn03 := myGui.AddButton("x200 y50 w75", "ファイル名検索")
-btn15 := myGui.AddButton("x350 y50 w45", "削除")
-btn16 := myGui.AddButton("x400 y50 w45", "配置")
-;y=75
-myGui.AddLink("x15 y79" , '<a href="https://lrclib.net/">LRCLIB</a>：')
-btn07 := myGui.AddButton("x75 y75 w55", "LRC取得")
-btn08 := myGui.AddButton("x135 y75 w60", "曲名検索")
+btn01 := myGui.AddButton("x135 y50 w60", "歌詞取得"),       btn01.OnEvent("Click", btn01clk)
+btn03 := myGui.AddButton("x200 y50 w75", "ファイル名検索"), btn03.OnEvent("Click", btn03clk)
+btn15 := myGui.AddButton("x350 y50 w45", "削除"),           btn15.OnEvent("Click", btn15clk)
+btn16 := myGui.AddButton("x400 y50 w45", "配置"),           btn16.OnEvent("Click", btn16clk)
+;y=75 Spotify
+myGui.AddLink("x10 y79" , '<a href="https://open.spotify.com/">Spotify</a>：')
+spotyid := myGui.AddEdit("x75 y77 w55")
+btn17 := myGui.AddButton("x135 y75 w60", "LRC取得"),        btn17.OnEvent("Click", btn17clk)
+btn18 := myGui.AddButton("x200 y75 w60", "曲名検索"),       btn18.OnEvent("Click", btn18clk)
+;y=75 LRCLIB
+myGui.AddLink("x280 y79" , '<a href="https://lrclib.net/">LRCLIB</a>：')
+btn07 := myGui.AddButton("x325 y75 w55", "LRC取得"),        btn07.OnEvent("Click", btn07clk)
+btn08 := myGui.AddButton("x385 y75 w60", "曲名検索"),       btn08.OnEvent("Click", btn08clk)
 ;y=100 曲情報
 myGui.AddText("x10  y102",  "[曲情報]")
 ;y=115
@@ -911,19 +984,19 @@ myGui.AddText("x10  y309", "videoID:"),    vidid  := myGui.AddEdit("x60  y307 w8
 myGui.AddText("x147 y309", "loopvid:"),    loopvid:= myGui.AddEdit("x185 y307 w85")
 ;y=330
 myGui.AddText("x10  y334", "動画type:"),   mtype  := myGui.AddEdit("x60  y332 w75")
-btn21 := myGui.AddButton("x140 y330 w60", "loop編集")
-btn22 := myGui.AddButton("x200 y330 w60", "動画検索")
+btn21 := myGui.AddButton("x140 y330 w60", "loop編集"),      btn21.OnEvent("Click", btn21clk)
+btn22 := myGui.AddButton("x200 y330 w60", "動画検索"),      btn22.OnEvent("Click", btn22clk)
 ;y=355
 myGui.AddText("x10  y359", "動画名:"),     vname  := myGui.AddEdit("x60  y357 w210")
 ;y=380 動画情報
 myGui.AddText("x10  y382", "[歌詞位置修正]")
 ;y=395
-btn02 := myGui.AddButton("x10  y400 w45", "ass作成＆再生")
-btn11 := myGui.AddButton("x60  y395 w35", "始㊤")
-btn12 := myGui.AddButton("x100 y395 w35", "始㊦")
-btn13 := myGui.AddButton("x140 y395 w35", "終㊤")
-btn14 := myGui.AddButton("x180 y395 w35", "終㊦")
-btn10 := myGui.AddButton("x220 y395 w40", "reset")
+btn02 := myGui.AddButton("x10  y400 w45", "ass作成＆再生"), btn02.OnEvent("Click", btn02clk)
+btn11 := myGui.AddButton("x60  y395 w35", "始㊤"),          btn11.OnEvent("Click", btn11clk)
+btn12 := myGui.AddButton("x100 y395 w35", "始㊦"),          btn12.OnEvent("Click", btn12clk)
+btn13 := myGui.AddButton("x140 y395 w35", "終㊤"),          btn13.OnEvent("Click", btn13clk)
+btn14 := myGui.AddButton("x180 y395 w35", "終㊦"),          btn14.OnEvent("Click", btn14clk)
+btn10 := myGui.AddButton("x220 y395 w40", "reset"),         btn10.OnEvent("Click", btn10clk)
 myGui.AddText("x65  y429", "開始座標："),   ystart  := myGui.AddEdit("x120 y425 w40")
 myGui.AddText("x165 y429", "終了座標："),   yend    := myGui.AddEdit("x220 y425 w40")
 ;y=50
@@ -936,26 +1009,7 @@ kstyle:= myGui.AddDropDownList("x380 y100 w30", ["", "1", "2", "3", "4", "5", "6
 kashi := myGui.AddEdit("x280 y120 w330 h300 +Multi +VScroll +HScroll")
 stat  := myGui.AddText("x280 y427 w330 h40 +Wrap", "[ステータス]")
 
-btn01.OnEvent("Click", btn01clk)
-btn02.OnEvent("Click", btn02clk)
-btn03.OnEvent("Click", btn03clk)
-btn04.OnEvent("Click", btn04clk)
-btn05.OnEvent("Click", btn05clk)
-btn06.OnEvent("Click", btn06clk)
-btn07.OnEvent("Click", btn07clk)
-btn08.OnEvent("Click", btn08clk)
-
-btn10.OnEvent("Click", btn10clk)
-btn11.OnEvent("Click", btn11clk)
-btn12.OnEvent("Click", btn12clk)
-btn13.OnEvent("Click", btn13clk)
-btn14.OnEvent("Click", btn14clk)
-btn15.OnEvent("Click", btn15clk)
-btn16.OnEvent("Click", btn16clk)
-btn21.OnEvent("Click", btn21clk)
-btn22.OnEvent("Click", btn22clk)
 myGui.OnEvent("DropFiles", HandleDrop)
-
 myGui.Show("w620 h460")
 
 if (A_Args.Length >= 1){

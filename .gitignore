@@ -3,3 +3,4 @@ bin/
 *.ini
 image/*.mp4
 image/*.jpg
+download/
