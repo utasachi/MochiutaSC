@@ -16,6 +16,7 @@ ytDlpUpdated := false
 FENRIR := "https://search.fenrir-inc.com/?hl=ja&channel=sleipnir_s&safe=off&lr=all&fr=ss&q="
 FENRIR_U := FENRIR "歌ネット 歌詞ページ "
 FENRIR_Y := FENRIR "youtube "
+FENRIR_S := FENRIR "spotify 曲・歌詞 "
 
 StdoutToVar(cmd) {              ;標準出力の値を変数に
     shell := ComObject("WScript.Shell")
@@ -538,7 +539,10 @@ btn01clk(*){            ;歌詞取得
         stat.Value := url "が見つかりません" , MsgBox(stat.Value)
         return false
     }
-    utaID0 := utaID.Value , ClearsInfo() , utaID.Value := utaID0
+    ; 歌詞情報クリア（全消しはしない）
+    title.Value := "" , artst.Value := "" , tieup.Value := "" , year.Value  := ""
+    lyric.Value := "" , cmpst.Value := "" , arngm.Value := "" , kashi.Value := ""
+
     if RegExMatch(texts, '<h2 class="ms-2 ms-md-3 kashi-title">(.+?)</h2>', &m)
         title.Value := rep(m[1])
     if RegExMatch(texts, "(?s)<p class=`"ms-2 ms-md-3 mb-0`" style='font-size:12px;'>\s*(.*?)\s*</p>", &m)
@@ -850,19 +854,43 @@ SetLibreLyricsSpDc() {
     }
     return true
 }
+
 btn17clk(*) {
     if librelyrics = "" {
         MsgBox "librelyricsの定義がありません"
         return
-    } else if (spotyid.Value = "") {
-        MsgBox "Spotify IDがありません"
-        return
     } else if !SetLibreLyricsSpDc() {
         return
     }
+    if (pos := InStr(spotyid.Value, "?")) {
+        spotyid.Value := SubStr(spotyid.Value, 1, pos - 1)
+    }
+    if (spotyid.Value = "") {
+        if title.Value ="" {
+            stat.Value := "titleなし" 
+            MsgBox "titleなし"
+            return false
+        }
+        url := FENRIR_S rep(title.Value) rep(artst.Value)
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("GET", url, false)
+        http.Send()
+        texts := http.ResponseText
+        if RegExMatch(texts, 'href="https://open\.spotify\.com/(?:intl-ja/)?track/([^"?]+)', &m) {
+            spotyid.Value := m[1]
+        } else {
+            stat.Value := "Spotify IDが見つからない" 
+            MsgBox "Spotify IDが見つからない"
+            return false
+        }
+    }
+    lrcDir := A_ScriptDir "\downloads"
+    if DirExist(lrcDir) {
+        DirDelete(lrcDir, true)
+    }
     url := "https://open.spotify.com/track/" spotyid.Value
     log := A_Temp "\librelyrics.log"
-    cmd := '"' librelyrics '" --force "' url '"'
+    cmd := '"' librelyrics '" -v -f "' url '"'
     cmd2 := A_ComSpec ' /c "' cmd ' > "' log '" 2>&1"'
     exitCode := RunWait(cmd2, , "Hide")
     if (exitCode != 0) {
@@ -870,6 +898,26 @@ btn17clk(*) {
         Run('notepad.exe "' log '"')
         return false
     }
+    lrcFile := ""
+    Loop Files, lrcDir "\*.lrc", "F" {
+        lrcFile := A_LoopFileFullPath
+        break
+    }
+    if (lrcFile = "") {
+        MsgBox "LRCファイルが作成されませんでした。"
+        return false
+    }
+    chkKashi := FileRead(lrcFile, "UTF-8")
+    chkLines := StrSplit(chkKashi, "`n", "`r")
+    first5 := ""
+    Loop Min(5, chkLines.Length) {
+        first5 .= chkLines[A_Index] "`n"
+    }
+    if (MsgBox("この歌詞で正しいですか？`n" first5, "確認", "OKCancel") != "OK"){
+        spotyid.Value := ""
+        return false
+    }
+    kashi.Value := chkKashi
     return true
 }
 
