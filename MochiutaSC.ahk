@@ -18,6 +18,21 @@ FENRIR_U := FENRIR "歌ネット 歌詞ページ "
 FENRIR_Y := FENRIR "youtube "
 FENRIR_S := FENRIR "spotify 曲・歌詞 "
 
+global waitCursor := false
+global hWaitCursor := DllCall("LoadCursor", "Ptr", 0, "Ptr", 32514, "Ptr")
+OnMessage(0x20, WM_SETCURSOR)
+WM_SETCURSOR(wParam, lParam, msg, hwnd) {   ;カーソル操作
+    global waitCursor, hWaitCursor, myGui
+    if waitCursor
+    {
+        if hwnd = myGui.Hwnd || DllCall("IsChild", "Ptr", myGui.Hwnd, "Ptr", hwnd)
+        {
+            DllCall("SetCursor", "Ptr", hWaitCursor)
+            return true
+        }
+    }
+}
+
 StdoutToVar(cmd) {              ;標準出力の値を変数に
     shell := ComObject("WScript.Shell")
     exec := shell.Exec(cmd)
@@ -394,6 +409,7 @@ LoadMp4(mp4f){                     ;mp3/mp4読込
         stat.Value := "mp3/mp4ファイルがありません" , MsgBox(stat.Value)
         return
     }
+    waitCursor := true
     assf := RegExReplace(mp4f, "\.[^\.]+$", ".ass")
     getdur(mp4f)
     ClearsInfo()
@@ -401,6 +417,7 @@ LoadMp4(mp4f){                     ;mp3/mp4読込
     ReadAssf(assf)
     ytimg()
     stat.Value := "ロード : " GetF(mp4f)
+    waitCursor := false
 }
 
 HandleDrop(guiObj, guiCtrlObj, files, x, y) {       ;ファイルドロップのハンドル
@@ -563,15 +580,7 @@ btn01clk(*){            ;歌詞取得
         vidid.Value := m[1]
     stat.Value := "取得しました : " title.Value
 }
-btn02clk(*){
-    stat.Value := ""
-    if ! btnErrCk()
-        return
-    ytimg()
-    if HasLineTag()
-        WriteSyncAssf(oFile.Value)
-    else
-        WriteAssf(oFile.Value)
+playmp(){
     mp4f := RegExReplace(oFile.Value, "\.ass$", ".mp4")
     mp3f := RegExReplace(oFile.Value, "\.ass$", ".mp3")
     if FileExist(mp4f) {
@@ -583,6 +592,17 @@ btn02clk(*){
     } else {
         stat.Value := "ファイルが存在しません" , MsgBox(stat.Value)
     }
+}
+btn02clk(*){
+    stat.Value := ""
+    if ! btnErrCk()
+        return
+    ytimg()
+    if HasLineTag()
+        WriteSyncAssf(oFile.Value)
+    else
+        WriteAssf(oFile.Value)
+    playmp()
 }
 btn03clk(*){
     stat.Value := ""
@@ -855,6 +875,12 @@ SetLibreLyricsSpDc() {
     return true
 }
 
+GetSpotifyTopTrackID(html) {
+    if !RegExMatch(html, 'data-testid="top-result-card"[\s\S]*?href="(?:/intl-[^/]+)?/track/([^"?/#]+)"', &m)
+        return ""
+    return m[1]
+}
+
 btn17clk(*) {
     if librelyrics = "" {
         MsgBox "librelyricsの定義がありません"
@@ -862,27 +888,41 @@ btn17clk(*) {
     } else if !SetLibreLyricsSpDc() {
         return
     }
-    if (pos := InStr(spotyid.Value, "?")) {
+    if (pos := InStr(spotyid.Value, "?"))
         spotyid.Value := SubStr(spotyid.Value, 1, pos - 1)
-    }
+    if (pos := InStr(spotyid.Value, "/", , -1))
+        spotyid.Value := SubStr(spotyid.Value, pos + 1)
     if (spotyid.Value = "") {
         if title.Value ="" {
             stat.Value := "titleなし" 
             MsgBox "titleなし"
             return false
         }
-        url := FENRIR_S rep(title.Value) rep(artst.Value)
-        http := ComObject("WinHttp.WinHttpRequest.5.1")
-        http.Open("GET", url, false)
-        http.Send()
-        texts := http.ResponseText
-        if RegExMatch(texts, 'href="https://open\.spotify\.com/(?:intl-ja/)?track/([^"?]+)', &m) {
-            spotyid.Value := m[1]
+        ; url := FENRIR_S rep(title.Value) rep(artst.Value)
+        ; http := ComObject("WinHttp.WinHttpRequest.5.1")
+        ; http.Open("GET", url, false)
+        ; http.Send()
+        ; texts := http.ResponseText
+        ; if RegExMatch(texts, 'href="https://open\.spotify\.com/(?:intl-ja/)?track/([^"?]+)', &m) {
+        ;     spotyid.Value := m[1]
+
+        btn17.Enabled := false
+        keyword := title.Value " " artst.Value
+        url := "https://open.spotify.com/search/" UriEncode(keyword)
+        htmlFile := A_Temp "\spotify_search.html"
+        edge := "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        cmd := '"' edge '" --headless=new --disable-gpu --dump-dom "' url '" > "' htmlFile '"'
+        exitCode := RunWait(A_ComSpec ' /c "' cmd '"', , "Hide")
+        if (exitCode = 0 && FileExist(htmlFile)) {
+            texts := FileRead(htmlFile, "UTF-8")
+            spotyid.Value := GetSpotifyTopTrackID(texts)
         } else {
+            btn17.Enabled := true
             stat.Value := "Spotify IDが見つからない" 
             MsgBox "Spotify IDが見つからない"
             return false
         }
+        btn17.Enabled := true
     }
     lrcDir := A_ScriptDir "\downloads"
     if DirExist(lrcDir) {
@@ -909,11 +949,11 @@ btn17clk(*) {
     }
     chkKashi := FileRead(lrcFile, "UTF-8")
     chkLines := StrSplit(chkKashi, "`n", "`r")
-    first5 := ""
-    Loop Min(5, chkLines.Length) {
-        first5 .= chkLines[A_Index] "`n"
+    first7 := ""
+    Loop Min(7, chkLines.Length) {
+        first7 .= chkLines[A_Index] "`n"
     }
-    if (MsgBox("この歌詞で正しいですか？`n" first5, "確認", "OKCancel") != "OK"){
+    if (MsgBox("この歌詞で正しいですか？`n" first7, "確認", "OKCancel") != "OK"){
         spotyid.Value := ""
         return false
     }
@@ -976,6 +1016,26 @@ btn22clk(*){
     stat.Value := ""
     Run(FENRIR_Y rep(title.Value " " artst.Value))    
 }
+;31 選択：出力ファイル選択
+btn31clk(*){
+    file := FileSelect(3, , "mp4/mp3ファイルを選択", "mp4/mp3ファイル (*.mp4; *.mp4;)")
+    if file = "" {
+        return
+    }
+    LoadMp4(file)
+}
+;32 設定：メモ帳でiniファイルを開く
+btn32clk(*){
+    Run("notepad.exe MochikaraSC.ini")
+}
+;33 ass編集：メモ帳でassファイルを開く
+btn33clk(*){
+    Run('notepad.exe "' oFile.Value '"')
+}
+;ThumbClick 画像クリック：再生
+ThumbClick(*){
+    playmp()
+}
 ; メイン
 ; ボタン=基準 Edit=+2 Text=+4 次行=+25
 mpcPath := GetMPCPath()
@@ -984,7 +1044,9 @@ librelyrics := IniRead("MochikaraSC.ini", "path", "librelyrics", "")
 myGui := Gui()
 myGui.Title := "もちからuta-netスクロール歌詞付与 v0.5"
 ;y=0
-myGui.AddText("x10 y4", "出力ファイル："),   oFile := myGui.AddEdit("x75 y2 w535")
+myGui.AddText("x10 y4", "出力ファイル："),   oFile := myGui.AddEdit("x75 y2 w450")
+btn31 := myGui.AddButton("x525 y0 w45", "選択"),            btn31.OnEvent("Click", btn31clk)
+btn32 := myGui.AddButton("x565 y0 w45", "設定"),            btn32.OnEvent("Click", btn32clk)
 ;y=25
 myGui.AddText("x10 y29", "曲の長さ："),      durat := myGui.AddEdit("x75 y27 w50")
 myGui.AddText("x135 y29" , "mp3/mp4をドラッグ＆ドロップ")
@@ -1047,14 +1109,14 @@ btn14 := myGui.AddButton("x180 y395 w35", "終㊦"),          btn14.OnEvent("Cli
 btn10 := myGui.AddButton("x220 y395 w40", "reset"),         btn10.OnEvent("Click", btn10clk)
 myGui.AddText("x65  y429", "開始座標："),   ystart  := myGui.AddEdit("x120 y425 w40")
 myGui.AddText("x165 y429", "終了座標："),   yend    := myGui.AddEdit("x220 y425 w40")
-;y=50
-thumb := myGui.AddPicture("x450 y25 w160 h90", noimg)
+;y=25
+thumb := myGui.AddPicture("x450 y27 w160 h90", noimg),      thumb.OnEvent("Click", ThumbClick)
 ;y=100 歌詞
-myGui.AddText("x280 y102", "[歌詞]")
-myGui.AddText("x320 y102", "歌詞style："),  
-kstyle:= myGui.AddDropDownList("x380 y100 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
-;y=120
-kashi := myGui.AddEdit("x280 y120 w330 h300 +Multi +VScroll +HScroll")
+myGui.AddText("x280 y104", "歌詞style："),  
+kstyle:= myGui.AddDropDownList("x340 y102 w30", ["", "1", "2", "3", "4", "5", "6", "7", "8"])
+btn33 := myGui.AddButton("x395 y100 w50", "ass編集"),       btn33.OnEvent("Click", btn33clk)
+;y=125
+kashi := myGui.AddEdit("x280 y125 w330 h300 +Multi +VScroll +HScroll")
 stat  := myGui.AddText("x280 y427 w330 h40 +Wrap", "[ステータス]")
 
 myGui.OnEvent("DropFiles", HandleDrop)
@@ -1064,4 +1126,4 @@ if (A_Args.Length >= 1){
     if (A_Args.Length >= 2 && A_Args[2] != "")
         asshead := A_Args[2]
     LoadMp4(A_Args[1])
-}                                                                                                                                                                                                                                                                                                                                                                                                                      
+}
